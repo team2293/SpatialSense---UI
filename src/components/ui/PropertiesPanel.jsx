@@ -26,6 +26,10 @@ export default function PropertiesPanel({
   setMeasurements,
   clearMeasurements,
   pointCloud,
+  pointSize,
+  setPointSize,
+  shadingMode,
+  setShadingMode,
 }) {
   const floorArea = roomDimensions.length * roomDimensions.width;
   const volume = roomDimensions.length * roomDimensions.width * roomDimensions.height;
@@ -258,6 +262,60 @@ export default function PropertiesPanel({
               </div>
             )}
           </div>
+
+          {/* Point Cloud Display */}
+          {pointCloud.length > 0 && (
+            <div className="p-4 border-b border-zinc-700">
+              <h3 className="text-zinc-400 text-xs font-semibold uppercase tracking-wider mb-3">Point Cloud Display</h3>
+              <div className="space-y-3">
+                {/* Point Size Slider */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-zinc-500 text-xs">Point Size</span>
+                    <span className="text-white font-mono text-xs">{pointSize.toFixed(3)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.005"
+                    max="0.2"
+                    step="0.005"
+                    value={pointSize}
+                    onChange={(e) => setPointSize(parseFloat(e.target.value))}
+                    className="w-full h-1.5 bg-zinc-700 rounded-full appearance-none cursor-pointer accent-cyan-500"
+                  />
+                  <div className="flex justify-between text-zinc-600 text-[10px] mt-0.5">
+                    <span>Small</span>
+                    <span>Large</span>
+                  </div>
+                </div>
+
+                {/* Shading Mode */}
+                <div>
+                  <span className="text-zinc-500 text-xs block mb-1.5">Shading</span>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {[
+                      { id: 'original', label: 'Original' },
+                      { id: 'height', label: 'Height Map' },
+                      { id: 'intensity', label: 'Intensity' },
+                      { id: 'normal', label: 'Normals' },
+                    ].map((mode) => (
+                      <button
+                        key={mode.id}
+                        onClick={() => setShadingMode(mode.id)}
+                        className={`py-1.5 px-2 rounded text-xs font-medium transition ${
+                          shadingMode === mode.id
+                            ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50'
+                            : 'bg-zinc-700 text-zinc-400 border border-transparent hover:bg-zinc-600 hover:text-zinc-300'
+                        }`}
+                      >
+                        {mode.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Quick Actions */}
           <div className="p-4">

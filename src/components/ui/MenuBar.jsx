@@ -53,10 +53,23 @@ export default function MenuBar({
   startRename,
   scannerMessage,
   onNewProject,
+  onBack,
 }) {
   return (
       <div className="bg-zinc-800 border-b border-zinc-700 px-2 py-1 flex items-center justify-between">
         <div className="flex items-center gap-1" ref={menuBarRef}>
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="flex items-center gap-1.5 px-2 py-1 text-zinc-400 hover:text-white hover:bg-zinc-700 rounded transition-colors mr-1"
+              title="Back to Dashboard"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+              <span className="text-xs">Dashboard</span>
+            </button>
+          )}
           <div className="flex items-center gap-2 px-3 py-1">
             <div className="w-6 h-6 bg-orange-500 rounded flex items-center justify-center">
               <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -27,7 +27,9 @@ function SceneContent({
   onDragEnd,
   unit = 'meters',
   showAxes = true,
-  showRoomBounds = true
+  showRoomBounds = true,
+  pointSize = 0.05,
+  shadingMode = 'original',
 }) {
   return (
     <>
@@ -78,7 +80,7 @@ function SceneContent({
       {showAxes && <axesHelper args={[1]} />}
 
       {/* Point Cloud */}
-      <PointCloud points={pointCloud} />
+      <PointCloud points={pointCloud} pointSize={pointSize} shadingMode={shadingMode} />
 
       {/* Room Box wireframe */}
       <RoomBox dimensions={roomDimensions} visible={showRoomBounds} />

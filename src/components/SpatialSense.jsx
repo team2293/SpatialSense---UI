@@ -47,7 +47,7 @@ const views = [
 // =============================================================================
 // MAIN COMPONENT
 // =============================================================================
-export default function SpatialSense() {
+export default function SpatialSense({ initialScan = null, onBack = null }) {
   // --- UI State ---
   const [activeTool, setActiveTool] = useState('select');
   const [selectedView, setSelectedView] = useState('perspective');
@@ -58,6 +58,8 @@ export default function SpatialSense() {
   const [showRoomBounds, setShowRoomBounds] = useState(true);
   const [showAxes, setShowAxes] = useState(true);
   const [cursorPosition, setCursorPosition] = useState({ x: '0.000', y: '0.000', z: '0.000' });
+  const [pointSize, setPointSize] = useState(0.05);
+  const [shadingMode, setShadingMode] = useState('original');
 
   const menuBarRef = useRef(null);
   const viewportRef = useRef(null);
@@ -66,6 +68,18 @@ export default function SpatialSense() {
   const pcm = usePointCloudManager();
   const meas = useMeasurements({ setActiveTool });
   const { notification, showNotification, playScreenshotSound } = useNotification();
+
+  // --- Auto-load scan from dashboard selection ---
+  useEffect(() => {
+    if (!initialScan) return;
+    if (initialScan.file) {
+      pcm.loadPlyFromFile(initialScan.file);
+    } else if (initialScan.url) {
+      pcm.loadPlyFromUrl(initialScan.url);
+    } else {
+      pcm.loadDemoData();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useKeyboardShortcuts({
     selectedMeasurement: meas.selectedMeasurement,
@@ -188,6 +202,7 @@ export default function SpatialSense() {
 
       {/* Top Menu Bar */}
       <MenuBar
+        onBack={onBack}
         activeMenu={activeMenu}
         toggleMenu={toggleMenu}
         setActiveMenu={setActiveMenu}
@@ -266,6 +281,8 @@ export default function SpatialSense() {
                 viewMode={selectedView}
                 showGrid={showGrid}
                 pointCloud={pcm.pointCloud}
+                pointSize={pointSize}
+                shadingMode={shadingMode}
                 roomDimensions={pcm.roomDimensions}
                 measurements={meas.measurements}
                 activeTool={activeTool}
@@ -333,6 +350,10 @@ export default function SpatialSense() {
           setMeasurements={meas.setMeasurements}
           clearMeasurements={meas.clearMeasurements}
           pointCloud={pcm.pointCloud}
+          pointSize={pointSize}
+          setPointSize={setPointSize}
+          shadingMode={shadingMode}
+          setShadingMode={setShadingMode}
         />
       </div>
 
