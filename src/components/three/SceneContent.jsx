@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { PerspectiveCamera, OrthographicCamera, OrbitControls, Grid } from '@react-three/drei';
 import PointCloud from './PointCloud';
 import RoomBox from './RoomBox';
@@ -31,6 +31,8 @@ function SceneContent({
   pointSize = 0.05,
   shadingMode = 'original',
 }) {
+  const pointCloudRef = useRef();
+
   return (
     <>
       {/* Scene background (ensures screenshots have the dark bg, not white) */}
@@ -80,7 +82,7 @@ function SceneContent({
       {showAxes && <axesHelper args={[1]} />}
 
       {/* Point Cloud */}
-      <PointCloud points={pointCloud} pointSize={pointSize} shadingMode={shadingMode} />
+      <PointCloud ref={pointCloudRef} points={pointCloud} pointSize={pointSize} shadingMode={shadingMode} />
 
       {/* Room Box wireframe */}
       <RoomBox dimensions={roomDimensions} visible={showRoomBounds} />
@@ -111,6 +113,8 @@ function SceneContent({
         viewMode={viewMode}
         axisConstraint={axisConstraint}
         unit={unit}
+        pointCloudRef={pointCloudRef}
+        pointSize={pointSize}
       />
 
       {/* Measurement Tool */}
@@ -120,6 +124,8 @@ function SceneContent({
         measurementStart={measurementStart}
         viewMode={viewMode}
         axisConstraint={axisConstraint}
+        pointCloudRef={pointCloudRef}
+        pointSize={pointSize}
       />
 
       {/* Coordinate Tracker */}

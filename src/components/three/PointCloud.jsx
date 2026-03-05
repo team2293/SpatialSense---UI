@@ -1,8 +1,31 @@
-import { useMemo, useRef, useEffect } from 'react';
+import { useMemo, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 import * as THREE from 'three';
 
-function PointCloud({ points, color = '#00ffff', pointSize = 0.05, shadingMode = 'original' }) {
+const PointCloud = forwardRef(function PointCloud(
+  { points, color = '#00ffff', pointSize = 0.05, shadingMode = 'original' },
+  ref
+) {
   const geometryRef = useRef();
+  const pointsRef = useRef();
+
+  // Expose the <points> mesh so measurement tools can raycast against it
+  useImperativeHandle(ref, () => pointsRef.current);
+
+  // Circle texture so points render as spheres instead of squares
+  const circleTexture = useMemo(() => {
+    const size = 64;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+    ctx.fillStyle = 'white';
+    ctx.fill();
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    return texture;
+  }, []);
 
   const positions = useMemo(() => {
     if (!points || points.length === 0) return new Float32Array(0);
@@ -82,7 +105,7 @@ function PointCloud({ points, color = '#00ffff', pointSize = 0.05, shadingMode =
   if (positions.length === 0) return null;
 
   return (
-    <points>
+    <points ref={pointsRef}>
       <bufferGeometry ref={geometryRef} />
       <pointsMaterial
         vertexColors
@@ -90,9 +113,11 @@ function PointCloud({ points, color = '#00ffff', pointSize = 0.05, shadingMode =
         sizeAttenuation
         transparent
         opacity={0.8}
+        map={circleTexture}
+        alphaTest={0.5}
       />
     </points>
   );
-}
+});
 
 export default PointCloud;

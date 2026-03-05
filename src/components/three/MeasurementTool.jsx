@@ -1,10 +1,10 @@
 import React, { useRef, useCallback, useEffect } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { getRaycastPlane, applyAxisConstraint } from '../../utils/geometry';
+import { snapToPoint } from '../../utils/pointSnapping';
 
-function MeasurementTool({ active, onMeasure, measurementStart, viewMode, axisConstraint }) {
-  const { camera, raycaster, gl, size } = useThree();
+function MeasurementTool({ active, onMeasure, measurementStart, viewMode, axisConstraint, pointCloudRef, pointSize }) {
+  const { camera, gl, size } = useThree();
   const startPointRef = useRef();
 
   // Dynamic scaling for start point dot
@@ -35,35 +35,20 @@ function MeasurementTool({ active, onMeasure, measurementStart, viewMode, axisCo
       -((event.clientY - rect.top) / rect.height) * 2 + 1
     );
 
-    raycaster.setFromCamera(mouse, camera);
+    const result = snapToPoint({
+      mouse,
+      camera,
+      pointsMesh: pointCloudRef?.current ?? null,
+      viewMode,
+      measurementStart,
+      axisConstraint,
+      pointSize,
+    });
 
-    // For vertical measurements (Y axis locked), use a vertical plane through the start point
-    let plane;
-    if (measurementStart && axisConstraint === 'y') {
-      // Use a plane facing the camera for easier vertical selection
-      const cameraDir = new THREE.Vector3();
-      camera.getWorldDirection(cameraDir);
-      // Create a vertical plane (normal is horizontal, perpendicular to camera view)
-      const planeNormal = new THREE.Vector3(cameraDir.x, 0, cameraDir.z).normalize();
-      plane = new THREE.Plane(planeNormal, -planeNormal.dot(new THREE.Vector3(...measurementStart)));
-    } else {
-      plane = getRaycastPlane(viewMode, measurementStart);
+    if (result.position) {
+      onMeasure(result.position);
     }
-
-    const intersectPoint = new THREE.Vector3();
-    raycaster.ray.intersectPlane(plane, intersectPoint);
-
-    if (intersectPoint) {
-      let finalPos = [intersectPoint.x, intersectPoint.y, intersectPoint.z];
-
-      // Apply axis constraint if there's a start point
-      if (measurementStart && axisConstraint) {
-        finalPos = applyAxisConstraint(finalPos, measurementStart, axisConstraint);
-      }
-
-      onMeasure(finalPos);
-    }
-  }, [active, camera, raycaster, gl, onMeasure, viewMode, measurementStart, axisConstraint]);
+  }, [active, camera, gl, onMeasure, viewMode, measurementStart, axisConstraint, pointCloudRef, pointSize]);
 
   useEffect(() => {
     const canvas = gl.domElement;
