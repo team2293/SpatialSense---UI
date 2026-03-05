@@ -1,9 +1,8 @@
-import React, { useMemo } from 'react';
-import { Points, PointMaterial } from '@react-three/drei';
+import { useMemo, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 
 function PointCloud({ points, color = '#00ffff', pointSize = 0.05, shadingMode = 'original' }) {
-  const ref = React.useRef();
+  const geometryRef = useRef();
 
   const positions = useMemo(() => {
     if (!points || points.length === 0) return new Float32Array(0);
@@ -39,14 +38,12 @@ function PointCloud({ points, color = '#00ffff', pointSize = 0.05, shadingMode =
 
       switch (shadingMode) {
         case 'height': {
-          // Color by Y position: blue (low) → cyan → green → yellow → red (high)
           const t = (p.y - yBounds.min) / (yBounds.max - yBounds.min);
           tmpColor.setHSL(0.67 - t * 0.67, 1.0, 0.5);
           r = tmpColor.r; g = tmpColor.g; b = tmpColor.b;
           break;
         }
         case 'intensity': {
-          // Simulate intensity from distance to center (XZ plane)
           const dist = Math.sqrt(p.x * p.x + p.z * p.z);
           const maxDist = 5;
           const intensity = Math.max(0, 1 - dist / maxDist);
@@ -54,7 +51,6 @@ function PointCloud({ points, color = '#00ffff', pointSize = 0.05, shadingMode =
           break;
         }
         case 'normal': {
-          // Approximate normals using position direction (normalized)
           const len = Math.sqrt(p.x * p.x + p.y * p.y + p.z * p.z) || 1;
           r = Math.abs(p.x / len);
           g = Math.abs(p.y / len);
@@ -62,7 +58,6 @@ function PointCloud({ points, color = '#00ffff', pointSize = 0.05, shadingMode =
           break;
         }
         default: {
-          // Original: use point color if available, otherwise base color
           const c = p.color ? new THREE.Color(p.color) : baseColor;
           r = c.r; g = c.g; b = c.b;
           break;
@@ -76,18 +71,27 @@ function PointCloud({ points, color = '#00ffff', pointSize = 0.05, shadingMode =
     return arr;
   }, [points, color, shadingMode, yBounds]);
 
+  // Manually set buffer attributes for reliable updates
+  useEffect(() => {
+    if (!geometryRef.current || positions.length === 0) return;
+    geometryRef.current.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometryRef.current.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geometryRef.current.computeBoundingSphere();
+  }, [positions, colors]);
+
   if (positions.length === 0) return null;
 
   return (
-    <Points ref={ref} positions={positions} colors={colors}>
-      <PointMaterial
+    <points>
+      <bufferGeometry ref={geometryRef} />
+      <pointsMaterial
         vertexColors
         size={pointSize}
         sizeAttenuation
         transparent
         opacity={0.8}
       />
-    </Points>
+    </points>
   );
 }
 
