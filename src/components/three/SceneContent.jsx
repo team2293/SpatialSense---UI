@@ -95,6 +95,7 @@ function SceneContent({
           start={m.start}
           end={m.end}
           label={m.distance}
+          name={m.name}
           onUpdatePoint={onUpdateMeasurementPoint}
           axisConstraint={axisConstraint}
           isSelected={selectedMeasurement === m.id}

@@ -8,6 +8,7 @@ function MeasurementLine({
   start,
   end,
   label,
+  name,
   color = '#facc15',
   onUpdatePoint,
   axisConstraint = null,
@@ -76,7 +77,7 @@ function MeasurementLine({
               : 'bg-zinc-900/90 text-yellow-400 border border-yellow-400/30'
           }`}
         >
-          {displayDistance}
+          {name && <span className="text-zinc-500 mr-1.5">{name}</span>}{displayDistance}
         </div>
       </Html>
     </group>
