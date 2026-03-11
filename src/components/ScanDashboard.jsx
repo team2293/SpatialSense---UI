@@ -1,6 +1,6 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 
-// Mock cloud scan data (local scans come from imported files)
+// Mock cloud scan data
 const CLOUD_SCANS = [
   {
     id: 'cloud-1',
@@ -83,13 +83,33 @@ const FileIcon = () => (
   </svg>
 );
 
+const FolderIcon = () => (
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+  </svg>
+);
+
 export default function ScanDashboard({ onSelectScan, onNewScan }) {
-  const [source, setSource] = useState('local');
+  const [source, setSource] = useState(null); // null = no source selected yet
+  const [showLoadMenu, setShowLoadMenu] = useState(false);
   const [importedFiles, setImportedFiles] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
+  const loadMenuRef = useRef(null);
 
-  const scans = source === 'local' ? importedFiles : CLOUD_SCANS;
+  const scans = source === 'cloud' ? CLOUD_SCANS : importedFiles;
+
+  // Close load menu on outside click
+  useEffect(() => {
+    if (!showLoadMenu) return;
+    const handleClick = (e) => {
+      if (loadMenuRef.current && !loadMenuRef.current.contains(e.target)) {
+        setShowLoadMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showLoadMenu]);
 
   const addFiles = useCallback((files) => {
     const plyFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.ply'));
@@ -109,6 +129,7 @@ export default function ScanDashboard({ onSelectScan, onNewScan }) {
 
     if (newScans.length > 0) {
       setImportedFiles(prev => [...prev, ...newScans]);
+      setSource('local');
     }
   }, [importedFiles]);
 
@@ -132,6 +153,17 @@ export default function ScanDashboard({ onSelectScan, onNewScan }) {
     addFiles(e.target.files);
     e.target.value = '';
   }, [addFiles]);
+
+  const handleLoadLocal = useCallback(() => {
+    setShowLoadMenu(false);
+    setSource('local');
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleLoadCloud = useCallback(() => {
+    setShowLoadMenu(false);
+    setSource('cloud');
+  }, []);
 
   const removeImportedFile = useCallback((id, e) => {
     e.stopPropagation();
@@ -171,84 +203,117 @@ export default function ScanDashboard({ onSelectScan, onNewScan }) {
       <div className="flex-1 px-8 py-6">
         <div>
 
-          {/* Source Toggle + Action Buttons */}
+          {/* Action Buttons */}
           <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-1 bg-zinc-800 rounded-lg p-1 border border-zinc-700">
+            <div className="relative" ref={loadMenuRef}>
               <button
-                onClick={() => setSource('local')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  source === 'local'
-                    ? 'bg-orange-500 text-white'
-                    : 'text-zinc-400 hover:text-white hover:bg-zinc-700'
-                }`}
+                onClick={() => setShowLoadMenu(!showLoadMenu)}
+                className="flex items-center gap-2 px-5 py-2.5 bg-zinc-700 hover:bg-zinc-600 text-zinc-200 rounded-lg text-sm font-medium transition-colors"
               >
-                <UsbIcon />
-                Local (USB-C)
+                <FolderIcon />
+                Load Model
+                <svg className={`w-4 h-4 text-zinc-400 transition-transform ${showLoadMenu ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
               </button>
-              <button
-                onClick={() => setSource('cloud')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  source === 'cloud'
-                    ? 'bg-orange-500 text-white'
-                    : 'text-zinc-400 hover:text-white hover:bg-zinc-700'
-                }`}
-              >
-                <CloudIcon />
-                Cloud (AWS)
-              </button>
-            </div>
 
-            <div className="flex items-center gap-3">
-              {source === 'local' && (
-                <>
+              {/* Dropdown menu */}
+              {showLoadMenu && (
+                <div className="absolute top-full left-0 mt-2 w-56 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-50 overflow-hidden">
                   <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-2 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-zinc-200 rounded-lg text-sm font-medium transition-colors"
+                    onClick={handleLoadLocal}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-700 transition-colors text-left"
                   >
-                    <UploadIcon className="w-4 h-4" />
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                    </svg>
-                    Import Files
+                    <UsbIcon />
+                    <div>
+                      <div className="text-zinc-200 text-sm font-medium">From Device</div>
+                      <div className="text-zinc-500 text-xs">Browse local PLY files</div>
+                    </div>
                   </button>
+                  <div className="border-t border-zinc-700" />
                   <button
-                    onClick={onNewScan}
-                    className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium transition-colors"
+                    onClick={handleLoadCloud}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-700 transition-colors text-left"
                   >
-                    <PlusIcon />
-                    New Scan
+                    <CloudIcon />
+                    <div>
+                      <div className="text-zinc-200 text-sm font-medium">From Cloud</div>
+                      <div className="text-zinc-500 text-xs">Browse AWS cloud scans</div>
+                    </div>
                   </button>
-                </>
+                </div>
               )}
             </div>
+
+            <button
+              onClick={onNewScan}
+              className="flex items-center gap-2 px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              <PlusIcon />
+              New Scan
+            </button>
           </div>
 
-          {/* Source Info Banner */}
-          <div className="mb-4 px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg">
-            {source === 'local' ? (
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-zinc-300 text-xs">
-                  Connected to Jetson Nano via USB-C &mdash; <span className="text-zinc-500">10.0.0.1:8000</span>
-                </span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-blue-500" />
-                <span className="text-zinc-300 text-xs">
-                  Connected to SpatialSense Cloud &mdash; <span className="text-zinc-500">us-east-1</span>
-                </span>
-              </div>
-            )}
-          </div>
+          {/* Source Info Banner — only shown when a source is active */}
+          {source && (
+            <div className="mb-4 px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg flex items-center justify-between">
+              {source === 'local' ? (
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-zinc-300 text-xs">
+                    Showing local files
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-blue-500" />
+                  <span className="text-zinc-300 text-xs">
+                    Connected to SpatialSense Cloud &mdash; <span className="text-zinc-500">us-east-1</span>
+                  </span>
+                </div>
+              )}
+              {source === 'local' && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-orange-400 hover:text-orange-300 text-xs font-medium"
+                >
+                  + Import More
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Section Title */}
-          <h2 className="text-zinc-400 text-xs font-semibold uppercase tracking-wider mb-3">
-            {source === 'local' ? 'Scans on Device' : 'Cloud Scans'}
-            <span className="text-zinc-600 ml-2">({scans.length})</span>
-          </h2>
+          {source && (
+            <h2 className="text-zinc-400 text-xs font-semibold uppercase tracking-wider mb-3">
+              {source === 'local' ? 'Local Files' : 'Cloud Scans'}
+              <span className="text-zinc-600 ml-2">({scans.length})</span>
+            </h2>
+          )}
 
-          {/* Local: Drop zone + imported files */}
+          {/* Empty state — no source selected */}
+          {!source && (
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-xl p-16 flex flex-col items-center justify-center transition-colors ${
+                isDragging
+                  ? 'border-orange-500 bg-orange-500/5'
+                  : 'border-zinc-700 bg-zinc-800/30'
+              }`}
+            >
+              <UploadIcon />
+              <p className="text-zinc-300 mt-4 font-medium text-base">
+                {isDragging ? 'Drop PLY files here' : 'Get started'}
+              </p>
+              <p className="text-zinc-500 text-xs mt-1.5 text-center max-w-sm">
+                Click <strong className="text-zinc-400">Load Model</strong> to open a local file or browse cloud scans, or drag & drop PLY files here.
+              </p>
+            </div>
+          )}
+
+          {/* Local: empty file list with drop zone */}
           {source === 'local' && scans.length === 0 && (
             <div
               onDragOver={handleDragOver}
@@ -269,7 +334,7 @@ export default function ScanDashboard({ onSelectScan, onNewScan }) {
             </div>
           )}
 
-          {/* Scan Grid (with drop zone active in background for local) */}
+          {/* Scan Grid */}
           {scans.length > 0 && (
             <div
               onDragOver={source === 'local' ? handleDragOver : undefined}
@@ -321,12 +386,12 @@ export default function ScanDashboard({ onSelectScan, onNewScan }) {
                   {/* Source badge */}
                   <div className="mt-3">
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${
-                      source === 'local'
+                      scan.type === 'file'
                         ? 'bg-zinc-700 text-zinc-300'
                         : 'bg-blue-500/10 text-blue-400'
                     }`}>
-                      {source === 'local' ? <UsbIcon /> : <CloudIcon />}
-                      {source === 'local' ? 'Local' : 'Cloud'}
+                      {scan.type === 'file' ? <UsbIcon /> : <CloudIcon />}
+                      {scan.type === 'file' ? 'Local' : 'Cloud'}
                     </span>
                   </div>
                 </button>
