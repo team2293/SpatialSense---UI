@@ -1,13 +1,16 @@
-// Scanner API service — communicates with the Jetson Nano Orin Super
-// Update JETSON_BASE_URL to match your Jetson's IP and port
+// Scanner API service — communicates with the Jetson via S3
+//
+// How it works:
+//   1. UI writes commands/start-scan.json to S3
+//   2. Jetson polls S3 for that file, picks it up, starts scan
+//   3. Jetson writes commands/scan-status.json with progress
+//   4. Jetson uploads PLY to S3 when done
+//   5. UI detects new PLY file and loads it
 
-const JETSON_BASE_URL = 'http://192.168.1.100:5000';
+import { writeScanCommand, writeStopCommand, checkForNewPly } from './s3Service';
 
-// ─── Dev Mode Toggle ──────────────────────────────────────────
-// Set to true to simulate scans without the Jetson connected.
-// Set to false when the real hardware is ready.
-//export const DEV_MODE = true;
-export const DEV_MODE = false;
+import { DEV_MODE } from './awsConfig';
+export { DEV_MODE }; // Re-export so existing imports still work
 
 // Mock scan duration in dev mode (ms)
 const MOCK_SCAN_DURATION = 6000;
@@ -33,17 +36,19 @@ function getMockStatus() {
     mockRunning = false;
     return {
       status: ScanStatus.COMPLETE,
-      s3Key: `scans/mock-scan-${Date.now()}.ply`,
+      s3Key: `mock-scan-${Date.now()}.ply`,
     };
   }
 
   return { status: ScanStatus.SCANNING };
 }
 
-// ─── Jetson API ───────────────────────────────────────────────
+// ─── Scan API (via S3) ──────────────────────────────────────
 
-// Tells the Jetson to start the scan program (teammate's code).
-// The Jetson handles: servo control, camera capture, PLY generation, and S3 upload.
+// Tracks when the current scan started, so we can detect new PLY files
+let scanStartedAt = null;
+
+// Tells the Jetson to start scanning by writing a command file to S3.
 // scanDetails: { name, projectNumber, location, floor, roomType, notes }
 export async function startScan(scanDetails) {
   if (DEV_MODE) {
@@ -52,13 +57,8 @@ export async function startScan(scanDetails) {
     return { ok: true, mock: true };
   }
 
-  const res = await fetch(`${JETSON_BASE_URL}/scan/start`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(scanDetails),
-  });
-  if (!res.ok) throw new Error(`Failed to start scan: ${res.statusText}`);
-  return res.json();
+  scanStartedAt = new Date();
+  await writeScanCommand(scanDetails);
 }
 
 export async function stopScan() {
@@ -68,26 +68,22 @@ export async function stopScan() {
     return { ok: true, mock: true };
   }
 
-  const res = await fetch(`${JETSON_BASE_URL}/scan/stop`, {
-    method: 'POST',
-  });
-  if (!res.ok) throw new Error(`Failed to stop scan: ${res.statusText}`);
-  return res.json();
+  await writeStopCommand();
 }
 
+// Checks scan status by looking for new PLY files in the bucket.
+// No noisy 404s — just lists files and checks timestamps.
 export async function getScanStatus() {
   if (DEV_MODE) {
     return getMockStatus();
   }
 
-  const res = await fetch(`${JETSON_BASE_URL}/scan/status`);
-  if (!res.ok) throw new Error(`Failed to get status: ${res.statusText}`);
-  return res.json();
-  // Expected response shape:
-  // {
-  //   status: 'idle' | 'scanning' | 'complete' | 'error',
-  //   message: string,
-  //   s3Key: string (only present when status is 'complete')
-  // }
-}
+  if (scanStartedAt) {
+    const newPlyKey = await checkForNewPly(scanStartedAt);
+    if (newPlyKey) {
+      return { status: ScanStatus.COMPLETE, s3Key: newPlyKey };
+    }
+  }
 
+  return { status: ScanStatus.SCANNING };
+}

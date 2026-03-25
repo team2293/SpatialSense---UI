@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ScanStatus, startScan, stopScan, getScanStatus, DEV_MODE } from '../services/scannerApi';
 import { downloadPlyFromS3 } from '../services/s3Service';
 
-const POLL_INTERVAL_MS = 500;
+const POLL_INTERVAL_MS = 3000; // Poll S3 every 3 seconds
 
 const ROOM_TYPES = [
   'Select type...',
