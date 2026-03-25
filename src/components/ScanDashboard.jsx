@@ -1,40 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-
-// Mock cloud scan data
-const CLOUD_SCANS = [
-  {
-    id: 'cloud-1',
-    name: 'Office Suite 200 - Main St',
-    date: '2026-02-28',
-    fileSize: '24.6 MB',
-    pointCount: '2.4M points',
-    type: 'demo',
-  },
-  {
-    id: 'cloud-2',
-    name: 'Lobby - Riverside Complex',
-    date: '2026-02-25',
-    fileSize: '18.3 MB',
-    pointCount: '1.8M points',
-    type: 'demo',
-  },
-  {
-    id: 'cloud-3',
-    name: 'Conference Room B',
-    date: '2026-02-20',
-    fileSize: '6.2 MB',
-    pointCount: '620K points',
-    type: 'demo',
-  },
-  {
-    id: 'cloud-4',
-    name: 'Warehouse Floor 1',
-    date: '2026-02-15',
-    fileSize: '45.1 MB',
-    pointCount: '4.5M points',
-    type: 'demo',
-  },
-];
+import { listCloudScans, downloadPlyFromS3 } from '../services/s3Service';
 
 function formatFileSize(bytes) {
   if (bytes < 1024) return bytes + ' B';
@@ -93,11 +58,14 @@ export default function ScanDashboard({ onSelectScan, onNewScan }) {
   const [source, setSource] = useState(null); // null = no source selected yet
   const [showLoadMenu, setShowLoadMenu] = useState(false);
   const [importedFiles, setImportedFiles] = useState([]);
+  const [cloudScans, setCloudScans] = useState([]);
+  const [cloudLoading, setCloudLoading] = useState(false);
+  const [cloudError, setCloudError] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
   const loadMenuRef = useRef(null);
 
-  const scans = source === 'cloud' ? CLOUD_SCANS : importedFiles;
+  const scans = source === 'cloud' ? cloudScans : importedFiles;
 
   // Close load menu on outside click
   useEffect(() => {
@@ -160,10 +128,34 @@ export default function ScanDashboard({ onSelectScan, onNewScan }) {
     fileInputRef.current?.click();
   }, []);
 
-  const handleLoadCloud = useCallback(() => {
+  const handleLoadCloud = useCallback(async () => {
     setShowLoadMenu(false);
     setSource('cloud');
+    setCloudLoading(true);
+    setCloudError('');
+    try {
+      const scans = await listCloudScans();
+      setCloudScans(scans);
+    } catch (err) {
+      setCloudError(err.message);
+    } finally {
+      setCloudLoading(false);
+    }
   }, []);
+
+  const handleSelectCloudScan = useCallback(async (scan) => {
+    if (!scan.s3Key) {
+      onSelectScan(scan);
+      return;
+    }
+    try {
+      const blob = await downloadPlyFromS3(scan.s3Key);
+      const file = new File([blob], `${scan.name}.ply`, { type: 'application/octet-stream' });
+      onSelectScan({ ...scan, file });
+    } catch (err) {
+      setCloudError(`Failed to download: ${err.message}`);
+    }
+  }, [onSelectScan]);
 
   const removeImportedFile = useCallback((id, e) => {
     e.stopPropagation();
@@ -283,8 +275,18 @@ export default function ScanDashboard({ onSelectScan, onNewScan }) {
             </div>
           )}
 
+          {/* Cloud error */}
+          {cloudError && source === 'cloud' && (
+            <div className="mb-4 bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 flex items-center justify-between">
+              <p className="text-red-400 text-sm">{cloudError}</p>
+              <button onClick={() => setCloudError('')} className="text-red-400 hover:text-red-300 text-xs ml-4">
+                Dismiss
+              </button>
+            </div>
+          )}
+
           {/* Section Title */}
-          {source && (
+          {source && !cloudLoading && (
             <h2 className="text-zinc-400 text-xs font-semibold uppercase tracking-wider mb-3">
               {source === 'local' ? 'Local Files' : 'Cloud Scans'}
               <span className="text-zinc-600 ml-2">({scans.length})</span>
@@ -310,6 +312,33 @@ export default function ScanDashboard({ onSelectScan, onNewScan }) {
               <p className="text-zinc-500 text-xs mt-1.5 text-center max-w-sm">
                 Click <strong className="text-zinc-400">Load Model</strong> to open a local file or browse cloud scans, or drag & drop PLY files here.
               </p>
+            </div>
+          )}
+
+          {/* Cloud: loading state */}
+          {source === 'cloud' && cloudLoading && (
+            <div className="border-2 border-dashed border-zinc-700 rounded-xl p-12 flex flex-col items-center justify-center">
+              <svg className="w-8 h-8 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              <p className="text-zinc-300 mt-3 font-medium">Connecting to AWS...</p>
+              <p className="text-zinc-500 text-xs mt-1">Fetching scans from S3 bucket</p>
+            </div>
+          )}
+
+          {/* Cloud: empty state */}
+          {source === 'cloud' && !cloudLoading && scans.length === 0 && !cloudError && (
+            <div className="border-2 border-dashed border-zinc-700 rounded-xl p-12 flex flex-col items-center justify-center">
+              <CloudIcon />
+              <p className="text-zinc-300 mt-3 font-medium">No scans found</p>
+              <p className="text-zinc-500 text-xs mt-1">The S3 bucket is empty or credentials need to be configured</p>
+              <button
+                onClick={handleLoadCloud}
+                className="mt-4 text-blue-400 hover:text-blue-300 text-xs font-medium"
+              >
+                Retry
+              </button>
             </div>
           )}
 
@@ -347,7 +376,7 @@ export default function ScanDashboard({ onSelectScan, onNewScan }) {
               {scans.map((scan) => (
                 <button
                   key={scan.id}
-                  onClick={() => onSelectScan(scan)}
+                  onClick={() => scan.s3Key ? handleSelectCloudScan(scan) : onSelectScan(scan)}
                   className="text-left bg-zinc-800 border border-zinc-700 rounded-lg p-4 hover:border-orange-500/50 hover:bg-zinc-750 transition-all group cursor-pointer relative"
                 >
                   {/* Remove button for imported files */}

@@ -3,13 +3,11 @@
 
 const JETSON_BASE_URL = 'http://192.168.1.100:5000';
 
-// AWS S3 config — update when credentials/bucket details are provided
-const AWS_S3_BUCKET_URL = 'https://YOUR-BUCKET.s3.us-east-1.amazonaws.com';
-
 // ─── Dev Mode Toggle ──────────────────────────────────────────
 // Set to true to simulate scans without the Jetson connected.
 // Set to false when the real hardware is ready.
-export const DEV_MODE = true;
+//export const DEV_MODE = true;
+export const DEV_MODE = false;
 
 // Mock scan duration in dev mode (ms)
 const MOCK_SCAN_DURATION = 6000;
@@ -93,18 +91,3 @@ export async function getScanStatus() {
   // }
 }
 
-// ─── AWS S3 ───────────────────────────────────────────────────
-
-// Download a PLY file from S3 by its key.
-// Called after the Jetson reports scan complete with an s3Key.
-export async function downloadPlyFromS3(s3Key) {
-  if (DEV_MODE) {
-    // Return an empty blob in dev mode — no real file to download
-    return new Blob([], { type: 'application/octet-stream' });
-  }
-
-  const url = `${AWS_S3_BUCKET_URL}/${s3Key}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Failed to download scan from S3: ${res.statusText}`);
-  return res.blob();
-}

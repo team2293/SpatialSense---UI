@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { ScanStatus, startScan, stopScan, getScanStatus, downloadPlyFromS3, DEV_MODE } from '../services/scannerApi';
+import { ScanStatus, startScan, stopScan, getScanStatus, DEV_MODE } from '../services/scannerApi';
+import { downloadPlyFromS3 } from '../services/s3Service';
 
 const POLL_INTERVAL_MS = 500;
 
