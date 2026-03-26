@@ -5,15 +5,29 @@ export function parsePlyMetadata(arrayBuffer) {
   const headerBytes = new Uint8Array(arrayBuffer, 0, Math.min(arrayBuffer.byteLength, 4096));
   const headerText = new TextDecoder('ascii').decode(headerBytes);
 
-  if (!headerText.includes('=== ORIENTATION METADATA ===')) return null;
-
   const metadata = {};
   const lines = headerText.split('\n');
+
+  // Parse reference points: "comment name: (x,y,z)"
+  const refPointNames = ['middle', 'top_middle', 'bottom_middle', 'left_middle', 'right_middle'];
+  const refPointPattern = /^comment\s+(\w+):\s*\(([^)]+)\)/;
 
   for (const line of lines) {
     if (!line.startsWith('comment ')) continue;
     const content = line.substring(8).trim();
 
+    // Check for reference point format: "middle: (-0.010516,0.011974,1.547000)"
+    const refMatch = line.match(refPointPattern);
+    if (refMatch && refPointNames.includes(refMatch[1])) {
+      const parts = refMatch[2].split(',').map(Number);
+      if (parts.length === 3 && parts.every(n => !isNaN(n))) {
+        if (!metadata.referencePoints) metadata.referencePoints = {};
+        metadata.referencePoints[refMatch[1]] = { x: parts[0], y: parts[1], z: parts[2] };
+      }
+      continue;
+    }
+
+    // Legacy metadata format
     const parseVec3 = (str) => {
       const parts = str.split(' ').map(Number);
       return { x: parts[0], y: parts[1], z: parts[2] };
@@ -23,95 +37,77 @@ export function parsePlyMetadata(arrayBuffer) {
       metadata.upVector = parseVec3(content.substring(10));
     } else if (content.startsWith('forward_vector ')) {
       metadata.forwardVector = parseVec3(content.substring(15));
-    } else if (content.startsWith('floor_plane_height ')) {
-      metadata.floorHeight = parseFloat(content.split(' ')[1]);
-    } else if (content.startsWith('ceiling_plane_height ')) {
-      metadata.ceilingHeight = parseFloat(content.split(' ')[1]);
-    } else if (content.startsWith('coordinate_system ')) {
-      metadata.coordinateSystem = content.substring(18);
-    } else if (content.startsWith('units ')) {
-      metadata.units = content.substring(6);
-    } else if (content.startsWith('scene_type ')) {
-      metadata.sceneType = content.substring(11);
     } else if (content.startsWith('primary_wall_normal ')) {
       metadata.primaryWallNormal = parseVec3(content.substring(19));
-    } else if (content.startsWith('scene_bounds_min ')) {
-      metadata.boundsMin = parseVec3(content.substring(17));
-    } else if (content.startsWith('scene_bounds_max ')) {
-      metadata.boundsMax = parseVec3(content.substring(17));
     }
   }
 
-  console.log('PLY metadata found:', metadata);
+  // Derive coordinate frame from reference points (matches partner's Python script)
+  // origin = middle
+  // X axis = east  = normalize(right_middle - middle)
+  // Y axis = north = normalize(top_middle - middle)
+  // Z axis = up    = east × north  (points back toward camera)
+  const refs = metadata.referencePoints;
+  if (refs && refs.middle && refs.top_middle && refs.right_middle) {
+    console.log('PLY reference points found:', refs);
+    metadata.hasReferenceFrame = true;
+  }
+
   return Object.keys(metadata).length > 0 ? metadata : null;
 }
 
-export function applyMetadataOrientation(positions, colors, metadata) {
-  const up = metadata.upVector || { x: 0, y: 1, z: 0 };
-  const wallNormal = metadata.primaryWallNormal || null;
-  const floorHeight = metadata.floorHeight ?? null;
+// Ported from partner's Python script — uses 5 reference points to build coordinate frame
+// origin = middle
+// X = east  = normalize(right_middle - middle)
+// Y = north = normalize(top_middle - middle)
+// Z = up    = east × north  (re-orthogonalized)
+// Then maps: east→X, north→Y(up), up→-Z in Three.js
+export function applyReferencePointOrientation(positions, colors, refs) {
+  const mid = [refs.middle.x, refs.middle.y, refs.middle.z];
+  const right = [refs.right_middle.x, refs.right_middle.y, refs.right_middle.z];
+  const top = [refs.top_middle.x, refs.top_middle.y, refs.top_middle.z];
 
-  let upVec = [up.x, up.y, up.z];
-  const upLen = Math.sqrt(upVec[0]**2 + upVec[1]**2 + upVec[2]**2);
-  if (upLen > 1e-8) upVec = upVec.map(v => v / upLen);
-  else upVec = [0, 1, 0];
-
-  const targetUp = [0, 1, 0];
-
-  const cross = [
-    upVec[1] * targetUp[2] - upVec[2] * targetUp[1],
-    upVec[2] * targetUp[0] - upVec[0] * targetUp[2],
-    upVec[0] * targetUp[1] - upVec[1] * targetUp[0],
+  const normalize = (v) => {
+    const len = Math.sqrt(v[0]**2 + v[1]**2 + v[2]**2);
+    return len > 1e-12 ? v.map(x => x / len) : null;
+  };
+  const cross = (a, b) => [
+    a[1]*b[2] - a[2]*b[1],
+    a[2]*b[0] - a[0]*b[2],
+    a[0]*b[1] - a[1]*b[0],
   ];
-  const dot = upVec[0] * targetUp[0] + upVec[1] * targetUp[1] + upVec[2] * targetUp[2];
-  const crossLen = Math.sqrt(cross[0]**2 + cross[1]**2 + cross[2]**2);
 
-  let R1 = [1,0,0, 0,1,0, 0,0,1];
-  if (crossLen > 1e-8) {
-    const axis = cross.map(v => v / crossLen);
-    const c = dot;
-    const s = crossLen;
-    const t = 1 - c;
-    const [ax, ay, az] = axis;
-    R1 = [
-      t*ax*ax + c,    t*ax*ay - s*az, t*ax*az + s*ay,
-      t*ax*ay + s*az, t*ay*ay + c,    t*ay*az - s*ax,
-      t*ax*az - s*ay, t*ay*az + s*ax, t*az*az + c,
-    ];
-  } else if (dot < 0) {
-    R1 = [-1,0,0, 0,-1,0, 0,0,1];
+  // East = right_middle - middle (camera's X axis)
+  let east = normalize([right[0]-mid[0], right[1]-mid[1], right[2]-mid[2]]);
+  // North = top_middle - middle (camera's Y axis / up in image)
+  let north = normalize([top[0]-mid[0], top[1]-mid[1], top[2]-mid[2]]);
+
+  if (!east || !north) {
+    console.warn('Reference points too close together, falling back to algorithmic orientation');
+    return null;
   }
 
-  let R2 = [1,0,0, 0,1,0, 0,0,1];
-  if (wallNormal) {
-    let wn = [wallNormal.x, wallNormal.y, wallNormal.z];
-    const wnLen = Math.sqrt(wn[0]**2 + wn[1]**2 + wn[2]**2);
-    if (wnLen > 1e-8) {
-      wn = wn.map(v => v / wnLen);
-      const wnR = [
-        R1[0]*wn[0] + R1[1]*wn[1] + R1[2]*wn[2],
-        R1[3]*wn[0] + R1[4]*wn[1] + R1[5]*wn[2],
-        R1[6]*wn[0] + R1[7]*wn[1] + R1[8]*wn[2],
-      ];
-      const projX = wnR[0];
-      const projZ = wnR[2];
-      const projLen = Math.sqrt(projX**2 + projZ**2);
-      if (projLen > 1e-8) {
-        const angle = Math.atan2(projX, projZ);
-        const c2 = Math.cos(-angle);
-        const s2 = Math.sin(-angle);
-        R2 = [c2,0,s2, 0,1,0, -s2,0,c2];
-      }
-    }
-  }
+  // Up = east × north (points back toward camera)
+  let up = normalize(cross(east, north));
+  if (!up) return null;
 
+  // Re-orthogonalize north
+  north = normalize(cross(up, east));
+  if (!north) return null;
+
+  console.log('Reference frame: east=', east, 'north=', north, 'up=', up);
+
+  // Build rotation matrix: R = [east | north | up] as columns
+  // This transforms from aligned coords to original coords.
+  // We want R^T (transpose) to transform from original to aligned coords.
+  // In aligned coords: X=east(right), Y=north(up), Z=up(back toward camera)
+  // Three.js convention: X=right, Y=up, Z=toward viewer — perfect match!
+  // So R^T maps original point coords → Three.js scene coords.
   const R = [
-    R2[0]*R1[0]+R2[1]*R1[3]+R2[2]*R1[6], R2[0]*R1[1]+R2[1]*R1[4]+R2[2]*R1[7], R2[0]*R1[2]+R2[1]*R1[5]+R2[2]*R1[8],
-    R2[3]*R1[0]+R2[4]*R1[3]+R2[5]*R1[6], R2[3]*R1[1]+R2[4]*R1[4]+R2[5]*R1[7], R2[3]*R1[2]+R2[4]*R1[5]+R2[5]*R1[8],
-    R2[6]*R1[0]+R2[7]*R1[3]+R2[8]*R1[6], R2[6]*R1[1]+R2[7]*R1[4]+R2[8]*R1[7], R2[6]*R1[2]+R2[7]*R1[5]+R2[8]*R1[8],
+    east[0], east[1], east[2],     // row 0: dot with east → X
+    north[0], north[1], north[2],  // row 1: dot with north → Y (up)
+    up[0], up[1], up[2],           // row 2: dot with up → Z (toward viewer)
   ];
-
-  console.log('Metadata orientation: up_vector', upVec, '→ Y, wall_normal →', wallNormal ? 'Z' : '(none, will use wall alignment)');
 
   const points = [];
   let minX = Infinity, maxX = -Infinity;
@@ -135,6 +131,7 @@ export function applyMetadataOrientation(positions, colors, metadata) {
     points.push(point);
   }
 
+  // Center the point cloud and put floor at Y=0
   const yValues = points.map(p => p.y).sort((a, b) => a - b);
   const xValues = points.map(p => p.x).sort((a, b) => a - b);
   const zValues = points.map(p => p.z).sort((a, b) => a - b);
@@ -150,8 +147,6 @@ export function applyMetadataOrientation(positions, colors, metadata) {
   const centerX = (xValues[xLow] + xValues[xHigh]) / 2;
   const centerZ = (zValues[zLow] + zValues[zHigh]) / 2;
 
-  console.log(`Floor detection: minY=${minY.toFixed(3)}, 1st percentile=${floorY.toFixed(3)}, 99th percentile=${ceilY.toFixed(3)}`);
-
   const recentered = points.map(p => ({
     x: p.x - centerX,
     y: p.y - floorY,
@@ -165,15 +160,25 @@ export function applyMetadataOrientation(positions, colors, metadata) {
     height: ceilY - floorY,
   };
 
-  console.log(`Metadata orientation: Room ${dimensions.length.toFixed(2)}m × ${dimensions.width.toFixed(2)}m × ${dimensions.height.toFixed(2)}m`);
+  // Camera hint: camera was at origin looking toward middle
+  // Transform origin (0,0,0) and middle through the same rotation + recentering
+  const camX = R[0]*0 + R[1]*0 + R[2]*0 - centerX;
+  const camY = R[3]*0 + R[4]*0 + R[5]*0 - floorY;
+  const camZ = R[6]*0 + R[7]*0 + R[8]*0 - centerZ;
 
-  if (!wallNormal) {
-    console.log('No wall_normal in metadata, running wall alignment on rotated points...');
-    const aligned = alignWallsToAxes(recentered);
-    return { points: aligned.points, dimensions: aligned.dimensions };
-  }
+  const midX = R[0]*mid[0] + R[1]*mid[1] + R[2]*mid[2] - centerX;
+  const midY = R[3]*mid[0] + R[4]*mid[1] + R[5]*mid[2] - floorY;
+  const midZ = R[6]*mid[0] + R[7]*mid[1] + R[8]*mid[2] - centerZ;
 
-  return { points: recentered, dimensions };
+  const cameraHint = {
+    position: [camX, camY, camZ],
+    target: [midX, midY, midZ],
+  };
+
+  console.log(`Reference point orientation: Room ${dimensions.length.toFixed(2)}m × ${dimensions.width.toFixed(2)}m × ${dimensions.height.toFixed(2)}m`);
+  console.log('Camera hint:', cameraHint);
+
+  return { points: recentered, dimensions, cameraHint };
 }
 
 export function alignWallsToAxes(points) {
@@ -339,9 +344,12 @@ export function processPlyBuffer(arrayBuffer) {
   const positions = geometry.attributes.position.array;
   const colors = geometry.attributes.color?.array;
 
-  if (metadata && metadata.upVector) {
-    console.log('Using PLY metadata for orientation');
-    return applyMetadataOrientation(positions, colors, metadata);
+  // Use reference points if available (from partner's PLY writer)
+  if (metadata && metadata.hasReferenceFrame) {
+    console.log('Using PLY reference points for orientation');
+    const result = applyReferencePointOrientation(positions, colors, metadata.referencePoints);
+    if (result) return result;
+    // Falls through to algorithmic orientation if reference points fail
   }
 
   console.log('No PLY metadata found, using algorithmic orientation');
@@ -388,5 +396,5 @@ export function processPlyBuffer(arrayBuffer) {
   }
 
   const aligned = alignWallsToAxes(points);
-  return { points: aligned.points, dimensions: aligned.dimensions };
+  return { points: aligned.points, dimensions: aligned.dimensions, cameraHint: null };
 }

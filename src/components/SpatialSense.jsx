@@ -300,6 +300,7 @@ export default function SpatialSense({ initialScan = null, onBack = null }) {
                 unit={unit}
                 showAxes={showAxes}
                 showRoomBounds={showRoomBounds}
+                cameraHint={pcm.cameraHint}
               />
             </Canvas>
 

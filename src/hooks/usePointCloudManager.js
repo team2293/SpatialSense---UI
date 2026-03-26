@@ -20,6 +20,7 @@ export function usePointCloudManager() {
     width: 5.000,
     height: 2.800,
   });
+  const [cameraHint, setCameraHint] = useState(null);
 
   const fileInputRef = useRef(null);
 
@@ -133,6 +134,7 @@ export function usePointCloudManager() {
       setOriginalPointCloud(result.points);
       setModelRotation({ x: 0, y: 0, z: 0 });
       setPointCount(result.points.length);
+      setCameraHint(result.cameraHint || null);
       setScannerState(ScannerState.MODEL_LOADED);
       setScannerMessage('PLY model loaded');
     } catch (error) {
@@ -156,6 +158,7 @@ export function usePointCloudManager() {
         setOriginalPointCloud(result.points);
         setModelRotation({ x: 0, y: 0, z: 0 });
         setPointCount(result.points.length);
+        setCameraHint(result.cameraHint || null);
         setScannerState(ScannerState.MODEL_LOADED);
         setScannerMessage(`Loaded: ${file.name}`);
       } catch (error) {
@@ -190,7 +193,7 @@ export function usePointCloudManager() {
     setScannerState, setScannerMessage,
     // Point cloud
     pointCloud, setPointCloud, originalPointCloud,
-    modelRotation, pointCount, roomDimensions,
+    modelRotation, pointCount, roomDimensions, cameraHint,
     fileInputRef,
     // Actions
     loadPlyFromUrl, loadPlyFromFile, handleFileSelect,

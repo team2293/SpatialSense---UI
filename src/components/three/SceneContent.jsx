@@ -1,4 +1,5 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
+import { useThree } from '@react-three/fiber';
 import { PerspectiveCamera, OrthographicCamera, OrbitControls, Grid } from '@react-three/drei';
 import PointCloud from './PointCloud';
 import RoomBox from './RoomBox';
@@ -6,6 +7,29 @@ import MeasurementLine from './MeasurementLine';
 import MeasurementPreview from './MeasurementPreview';
 import MeasurementTool from './MeasurementTool';
 import CoordinateTracker from './CoordinateTracker';
+
+// Applies camera hint from PLY metadata reference points
+function CameraHintApplier({ cameraHint, controlsRef }) {
+  const camera = useThree((state) => state.camera);
+
+  useEffect(() => {
+    if (!cameraHint || !camera) return;
+
+    const { position, target } = cameraHint;
+    if (position) {
+      camera.position.set(position[0], position[1], position[2]);
+    }
+    if (target && controlsRef.current) {
+      controlsRef.current.target.set(target[0], target[1], target[2]);
+      controlsRef.current.update();
+    } else if (target) {
+      camera.lookAt(target[0], target[1], target[2]);
+    }
+    camera.updateProjectionMatrix();
+  }, [cameraHint, camera, controlsRef]);
+
+  return null;
+}
 
 function SceneContent({
   viewMode,
@@ -30,8 +54,10 @@ function SceneContent({
   showRoomBounds = true,
   pointSize = 0.05,
   shadingMode = 'original',
+  cameraHint = null,
 }) {
   const pointCloudRef = useRef();
+  const controlsRef = useRef();
 
   return (
     <>
@@ -52,10 +78,16 @@ function SceneContent({
       )}
 
       <OrbitControls
+        ref={controlsRef}
         enablePan={!isDraggingPoint}
         enableZoom={!isDraggingPoint}
         enableRotate={(viewMode === 'perspective' || viewMode === 'inside') && !isDraggingPoint && !isViewLocked}
       />
+
+      {/* Apply camera position from PLY reference points */}
+      {cameraHint && viewMode === 'perspective' && (
+        <CameraHintApplier cameraHint={cameraHint} controlsRef={controlsRef} />
+      )}
 
       {/* Lighting */}
       <ambientLight intensity={0.5} />
