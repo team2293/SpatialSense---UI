@@ -37,7 +37,7 @@ export function rotatePointCloud(points, axis, degrees) {
   const sin = Math.sin(angleRad);
 
   const rotated = points.map(p => {
-    const { x, y, z, color } = p;
+    const { x, y, z } = p;
     let nx, ny, nz;
     if (axis === 'x') {
       nx = x; ny = y * cos - z * sin; nz = y * sin + z * cos;
@@ -46,7 +46,7 @@ export function rotatePointCloud(points, axis, degrees) {
     } else {
       nx = x * cos - y * sin; ny = x * sin + y * cos; nz = z;
     }
-    return { x: nx, y: ny, z: nz, color };
+    return { x: nx, y: ny, z: nz, r: p.r, g: p.g, b: p.b };
   });
 
   if (rotated.length === 0) return { points: rotated, dimensions: null };
@@ -65,7 +65,9 @@ export function rotatePointCloud(points, axis, degrees) {
     x: p.x - centerX,
     y: p.y - minY,
     z: p.z - centerZ,
-    color: p.color
+    r: p.r,
+    g: p.g,
+    b: p.b,
   }));
 
   const dimensions = {

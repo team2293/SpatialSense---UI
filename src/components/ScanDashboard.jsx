@@ -62,6 +62,7 @@ export default function ScanDashboard({ onSelectScan, onNewScan }) {
   const [cloudLoading, setCloudLoading] = useState(false);
   const [cloudError, setCloudError] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [downloadingScanId, setDownloadingScanId] = useState(null);
   const fileInputRef = useRef(null);
   const loadMenuRef = useRef(null);
 
@@ -148,12 +149,15 @@ export default function ScanDashboard({ onSelectScan, onNewScan }) {
       onSelectScan(scan);
       return;
     }
+    setDownloadingScanId(scan.id);
     try {
       const blob = await downloadPlyFromS3(scan.s3Key);
       const file = new File([blob], `${scan.name}.ply`, { type: 'application/octet-stream' });
       onSelectScan({ ...scan, file });
     } catch (err) {
       setCloudError(`Failed to download: ${err.message}`);
+    } finally {
+      setDownloadingScanId(null);
     }
   }, [onSelectScan]);
 
@@ -373,11 +377,16 @@ export default function ScanDashboard({ onSelectScan, onNewScan }) {
                 isDragging ? 'ring-2 ring-orange-500 ring-offset-2 ring-offset-zinc-900' : ''
               }`}
             >
-              {scans.map((scan) => (
+              {scans.map((scan) => {
+                const isDownloading = downloadingScanId === scan.id;
+                return (
                 <button
                   key={scan.id}
-                  onClick={() => scan.s3Key ? handleSelectCloudScan(scan) : onSelectScan(scan)}
-                  className="text-left bg-zinc-800 border border-zinc-700 rounded-lg p-4 hover:border-orange-500/50 hover:bg-zinc-750 transition-all group cursor-pointer relative"
+                  onClick={() => isDownloading ? null : scan.s3Key ? handleSelectCloudScan(scan) : onSelectScan(scan)}
+                  disabled={isDownloading}
+                  className={`text-left bg-zinc-800 border border-zinc-700 rounded-lg p-4 transition-all group relative ${
+                    isDownloading ? 'opacity-70 cursor-wait' : 'hover:border-orange-500/50 hover:bg-zinc-750 cursor-pointer'
+                  }`}
                 >
                   {/* Remove button for imported files */}
                   {scan.type === 'file' && (
@@ -393,7 +402,15 @@ export default function ScanDashboard({ onSelectScan, onNewScan }) {
 
                   {/* Thumbnail Placeholder */}
                   <div className="w-full h-32 bg-zinc-900 rounded-md mb-3 flex items-center justify-center border border-zinc-700 group-hover:border-zinc-600">
-                    {scan.type === 'file' ? <FileIcon /> : <RoomIcon />}
+                    {isDownloading ? (
+                      <div className="flex flex-col items-center gap-2">
+                        <svg className="w-8 h-8 animate-spin text-orange-500" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                          <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        <span className="text-zinc-400 text-xs">Downloading...</span>
+                      </div>
+                    ) : scan.type === 'file' ? <FileIcon /> : <RoomIcon />}
                   </div>
 
                   {/* Scan Info */}
@@ -424,7 +441,8 @@ export default function ScanDashboard({ onSelectScan, onNewScan }) {
                     </span>
                   </div>
                 </button>
-              ))}
+                );
+              })}
             </div>
           )}
 

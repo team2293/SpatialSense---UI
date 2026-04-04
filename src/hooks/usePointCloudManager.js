@@ -127,6 +127,9 @@ export function usePointCloudManager() {
     try {
       const response = await fetch(url);
       const arrayBuffer = await response.arrayBuffer();
+
+      // Allow the PROCESSING loading state to render before blocking CPU work
+      await new Promise(resolve => setTimeout(resolve, 50));
       const result = processPlyBuffer(arrayBuffer);
 
       setRoomDimensions(result.dimensions);
@@ -150,22 +153,26 @@ export function usePointCloudManager() {
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      try {
-        const result = processPlyBuffer(event.target.result);
+      // Use setTimeout to allow the PROCESSING loading state to render
+      // before the CPU-blocking processPlyBuffer work begins
+      setTimeout(() => {
+        try {
+          const result = processPlyBuffer(event.target.result);
 
-        setRoomDimensions(result.dimensions);
-        setPointCloud(result.points);
-        setOriginalPointCloud(result.points);
-        setModelRotation({ x: 0, y: 0, z: 0 });
-        setPointCount(result.points.length);
-        setCameraHint(result.cameraHint || null);
-        setScannerState(ScannerState.MODEL_LOADED);
-        setScannerMessage(`Loaded: ${file.name}`);
-      } catch (error) {
-        console.error('Error parsing PLY file:', error);
-        setScannerState(ScannerState.ERROR);
-        setScannerMessage(`Error: ${error.message}`);
-      }
+          setRoomDimensions(result.dimensions);
+          setPointCloud(result.points);
+          setOriginalPointCloud(result.points);
+          setModelRotation({ x: 0, y: 0, z: 0 });
+          setPointCount(result.points.length);
+          setCameraHint(result.cameraHint || null);
+          setScannerState(ScannerState.MODEL_LOADED);
+          setScannerMessage(`Loaded: ${file.name}`);
+        } catch (error) {
+          console.error('Error parsing PLY file:', error);
+          setScannerState(ScannerState.ERROR);
+          setScannerMessage(`Error: ${error.message}`);
+        }
+      }, 50);
     };
 
     reader.onerror = () => {

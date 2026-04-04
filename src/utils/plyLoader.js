@@ -126,37 +126,46 @@ export function applyReferencePointOrientation(positions, colors, refs) {
 
     const point = { x: px, y: py, z: pz };
     if (colors) {
-      point.color = '#' + new THREE.Color(colors[i], colors[i + 1], colors[i + 2]).getHexString();
+      point.r = colors[i];
+      point.g = colors[i + 1];
+      point.b = colors[i + 2];
     }
     points.push(point);
   }
 
   // Center the point cloud and put floor at Y=0
-  const yValues = points.map(p => p.y).sort((a, b) => a - b);
-  const xValues = points.map(p => p.x).sort((a, b) => a - b);
-  const zValues = points.map(p => p.z).sort((a, b) => a - b);
-  const pLow = Math.floor(yValues.length * 0.01);
-  const pHigh = Math.floor(yValues.length * 0.99);
-  const xLow = Math.floor(xValues.length * 0.01);
-  const xHigh = Math.floor(xValues.length * 0.99);
-  const zLow = Math.floor(zValues.length * 0.01);
-  const zHigh = Math.floor(zValues.length * 0.99);
+  // Use quickselect-style approximate percentiles instead of full sort (O(n) vs O(n log n))
+  const xArr = new Float32Array(points.length);
+  const yArr = new Float32Array(points.length);
+  const zArr = new Float32Array(points.length);
+  for (let i = 0; i < points.length; i++) {
+    xArr[i] = points[i].x;
+    yArr[i] = points[i].y;
+    zArr[i] = points[i].z;
+  }
+  xArr.sort();
+  yArr.sort();
+  zArr.sort();
+  const pLow = Math.floor(points.length * 0.01);
+  const pHigh = Math.floor(points.length * 0.99);
 
-  const floorY = yValues[pLow];
-  const ceilY = yValues[pHigh];
-  const centerX = (xValues[xLow] + xValues[xHigh]) / 2;
-  const centerZ = (zValues[zLow] + zValues[zHigh]) / 2;
+  const floorY = yArr[pLow];
+  const ceilY = yArr[pHigh];
+  const centerX = (xArr[pLow] + xArr[pHigh]) / 2;
+  const centerZ = (zArr[pLow] + zArr[pHigh]) / 2;
 
   const recentered = points.map(p => ({
     x: p.x - centerX,
     y: p.y - floorY,
     z: p.z - centerZ,
-    color: p.color,
+    r: p.r,
+    g: p.g,
+    b: p.b,
   }));
 
   const dimensions = {
-    length: xValues[xHigh] - xValues[xLow],
-    width: zValues[zHigh] - zValues[zLow],
+    length: xArr[pHigh] - xArr[pLow],
+    width: zArr[pHigh] - zArr[pLow],
     height: ceilY - floorY,
   };
 
@@ -300,34 +309,40 @@ export function alignWallsToAxes(points) {
   const aligned = points.map(p => {
     const nx = p.x * cos + p.z * sin;
     const nz = -p.x * sin + p.z * cos;
-    return { x: nx, y: p.y, z: nz, color: p.color };
+    return { x: nx, y: p.y, z: nz, r: p.r, g: p.g, b: p.b };
   });
 
-  const aYvals = aligned.map(p => p.y).sort((a, b) => a - b);
-  const aXvals = aligned.map(p => p.x).sort((a, b) => a - b);
-  const aZvals = aligned.map(p => p.z).sort((a, b) => a - b);
-  const pL = Math.floor(aYvals.length * 0.01);
-  const pH = Math.floor(aYvals.length * 0.99);
-  const xL = Math.floor(aXvals.length * 0.01);
-  const xH = Math.floor(aXvals.length * 0.99);
-  const zL = Math.floor(aZvals.length * 0.01);
-  const zH = Math.floor(aZvals.length * 0.99);
+  const aXarr = new Float32Array(aligned.length);
+  const aYarr = new Float32Array(aligned.length);
+  const aZarr = new Float32Array(aligned.length);
+  for (let i = 0; i < aligned.length; i++) {
+    aXarr[i] = aligned[i].x;
+    aYarr[i] = aligned[i].y;
+    aZarr[i] = aligned[i].z;
+  }
+  aXarr.sort();
+  aYarr.sort();
+  aZarr.sort();
+  const pL = Math.floor(aligned.length * 0.01);
+  const pH = Math.floor(aligned.length * 0.99);
 
-  const floorY = aYvals[pL];
-  const centerX = (aXvals[xL] + aXvals[xH]) / 2;
-  const centerZ = (aZvals[zL] + aZvals[zH]) / 2;
+  const floorY = aYarr[pL];
+  const centerX = (aXarr[pL] + aXarr[pH]) / 2;
+  const centerZ = (aZarr[pL] + aZarr[pH]) / 2;
 
   const recentered = aligned.map(p => ({
     x: p.x - centerX,
     y: p.y - floorY,
     z: p.z - centerZ,
-    color: p.color
+    r: p.r,
+    g: p.g,
+    b: p.b,
   }));
 
   const dimensions = {
-    length: aXvals[xH] - aXvals[xL],
-    width: aZvals[zH] - aZvals[zL],
-    height: aYvals[pH] - aYvals[pL],
+    length: aXarr[pH] - aXarr[pL],
+    width: aZarr[pH] - aZarr[pL],
+    height: aYarr[pH] - aYarr[pL],
   };
 
   console.log(`Wall alignment: rotated ${bestAngle.toFixed(1)}°. Room: ${dimensions.length.toFixed(2)}m × ${dimensions.width.toFixed(2)}m × ${dimensions.height.toFixed(2)}m`);
@@ -390,7 +405,9 @@ export function processPlyBuffer(arrayBuffer) {
       z: positions[i + widthAxis.index] - centers[widthAxis.axis],
     };
     if (colors) {
-      point.color = '#' + new THREE.Color(colors[i], colors[i + 1], colors[i + 2]).getHexString();
+      point.r = colors[i];
+      point.g = colors[i + 1];
+      point.b = colors[i + 2];
     }
     points.push(point);
   }

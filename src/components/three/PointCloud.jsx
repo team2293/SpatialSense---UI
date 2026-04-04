@@ -30,11 +30,12 @@ const PointCloud = forwardRef(function PointCloud(
   const positions = useMemo(() => {
     if (!points || points.length === 0) return new Float32Array(0);
     const arr = new Float32Array(points.length * 3);
-    points.forEach((p, i) => {
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
       arr[i * 3] = p.x;
       arr[i * 3 + 1] = p.y;
       arr[i * 3 + 2] = p.z;
-    });
+    }
     return arr;
   }, [points]);
 
@@ -42,10 +43,11 @@ const PointCloud = forwardRef(function PointCloud(
   const yBounds = useMemo(() => {
     if (!points || points.length === 0) return { min: 0, max: 1 };
     let min = Infinity, max = -Infinity;
-    points.forEach((p) => {
-      if (p.y < min) min = p.y;
-      if (p.y > max) max = p.y;
-    });
+    for (let i = 0; i < points.length; i++) {
+      const y = points[i].y;
+      if (y < min) min = y;
+      if (y > max) max = y;
+    }
     if (min === max) max = min + 1;
     return { min, max };
   }, [points]);
@@ -54,22 +56,25 @@ const PointCloud = forwardRef(function PointCloud(
     if (!points || points.length === 0) return new Float32Array(0);
     const arr = new Float32Array(points.length * 3);
     const baseColor = new THREE.Color(color);
+    const baseR = baseColor.r, baseG = baseColor.g, baseB = baseColor.b;
     const tmpColor = new THREE.Color();
+    const yRange = yBounds.max - yBounds.min;
 
-    points.forEach((p, i) => {
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
       let r, g, b;
+      const idx = i * 3;
 
       switch (shadingMode) {
         case 'height': {
-          const t = (p.y - yBounds.min) / (yBounds.max - yBounds.min);
+          const t = (p.y - yBounds.min) / yRange;
           tmpColor.setHSL(0.67 - t * 0.67, 1.0, 0.5);
           r = tmpColor.r; g = tmpColor.g; b = tmpColor.b;
           break;
         }
         case 'intensity': {
           const dist = Math.sqrt(p.x * p.x + p.z * p.z);
-          const maxDist = 5;
-          const intensity = Math.max(0, 1 - dist / maxDist);
+          const intensity = Math.max(0, 1 - dist / 5);
           r = intensity; g = intensity; b = intensity;
           break;
         }
@@ -81,16 +86,17 @@ const PointCloud = forwardRef(function PointCloud(
           break;
         }
         default: {
-          const c = p.color ? new THREE.Color(p.color) : baseColor;
-          r = c.r; g = c.g; b = c.b;
+          r = p.r !== undefined ? p.r : baseR;
+          g = p.g !== undefined ? p.g : baseG;
+          b = p.b !== undefined ? p.b : baseB;
           break;
         }
       }
 
-      arr[i * 3] = r;
-      arr[i * 3 + 1] = g;
-      arr[i * 3 + 2] = b;
-    });
+      arr[idx] = r;
+      arr[idx + 1] = g;
+      arr[idx + 2] = b;
+    }
     return arr;
   }, [points, color, shadingMode, yBounds]);
 

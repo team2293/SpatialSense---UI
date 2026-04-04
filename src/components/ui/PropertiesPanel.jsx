@@ -317,24 +317,6 @@ export default function PropertiesPanel({
             </div>
           )}
 
-          {/* Quick Actions */}
-          <div className="p-4">
-            <h3 className="text-zinc-400 text-xs font-semibold uppercase tracking-wider mb-3">Quick Export</h3>
-            <div className="grid grid-cols-2 gap-2">
-              <button className="py-2 px-3 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 rounded text-xs font-medium transition">
-                .OBJ
-              </button>
-              <button className="py-2 px-3 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 rounded text-xs font-medium transition">
-                .PLY
-              </button>
-              <button className="py-2 px-3 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 rounded text-xs font-medium transition">
-                .PDF
-              </button>
-              <button className="py-2 px-3 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 rounded text-xs font-medium transition">
-                .CSV
-              </button>
-            </div>
-          </div>
         </div>
   );
 }
