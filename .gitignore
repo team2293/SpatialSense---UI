@@ -6,5 +6,7 @@ dist/
 # Claude Code local settings
 .claude/
 
-# AWS credentials — never commit these
-src/services/awsConfig.js
+# Local environment variables — never commit real credentials
+.env.local
+.env*.local
+
