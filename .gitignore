@@ -3,5 +3,8 @@ dist/
 .DS_Store
 *.ply
 
+# Claude Code local settings
+.claude/
+
 # AWS credentials — never commit these
 src/services/awsConfig.js
