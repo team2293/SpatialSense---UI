@@ -34,6 +34,7 @@ export default function MenuBar({
   clearMeasurements,
   exportMeasurementsJSON,
   exportMeasurementsCSV,
+  openReportPreview,
   screenshotViewport,
   scannerState,
   connectToScanner,
@@ -226,7 +227,12 @@ export default function MenuBar({
               className={`px-3 py-1 rounded transition ${activeMenu === 'export' ? 'text-white bg-zinc-700' : 'text-zinc-400 hover:text-white hover:bg-zinc-700'}`}
             >Export</button>
             {activeMenu === 'export' && (
-              <div className="absolute left-0 top-full mt-1 w-56 bg-zinc-800 border border-zinc-600 rounded-lg shadow-xl z-50 py-1">
+              <div className="absolute left-0 top-full mt-1 w-60 bg-zinc-800 border border-zinc-600 rounded-lg shadow-xl z-50 py-1">
+                <button onClick={openReportPreview} className="w-full text-left px-4 py-1.5 text-zinc-300 hover:bg-zinc-700 hover:text-white flex items-center justify-between">
+                  <span>Generate Report (PDF)</span>
+                  <span className="text-orange-400 text-xs font-semibold">NEW</span>
+                </button>
+                <div className="border-t border-zinc-700 my-1"></div>
                 <button onClick={exportMeasurementsJSON} className={`w-full text-left px-4 py-1.5 ${measurements.length > 0 ? 'text-zinc-300 hover:bg-zinc-700 hover:text-white' : 'text-zinc-600 cursor-not-allowed'}`} disabled={measurements.length === 0}>
                   Export Measurements as JSON
                 </button>

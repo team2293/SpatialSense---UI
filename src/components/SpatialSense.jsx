@@ -25,6 +25,7 @@ import ViewportOverlays from './ui/ViewportOverlays';
 import PropertiesPanel from './ui/PropertiesPanel';
 import StatusBar from './ui/StatusBar';
 import NotificationPopup from './ui/NotificationPopup';
+import ReportPreviewModal from './ui/ReportPreviewModal';
 
 // =============================================================================
 // TOOL & VIEW DEFINITIONS
@@ -60,6 +61,8 @@ export default function SpatialSense({ initialScan = null, onBack = null }) {
   const [cursorPosition, setCursorPosition] = useState({ x: '0.000', y: '0.000', z: '0.000' });
   const [pointSize, setPointSize] = useState(0.05);
   const [shadingMode, setShadingMode] = useState('original');
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportScreenshot, setReportScreenshot] = useState(null);
 
   const menuBarRef = useRef(null);
   const viewportRef = useRef(null);
@@ -151,6 +154,23 @@ export default function SpatialSense({ initialScan = null, onBack = null }) {
     }
   }, [showNotification, playScreenshotSound]);
 
+  // --- Open Report Preview (captures screenshot, then opens modal) ---
+  const openReportPreview = useCallback(() => {
+    setActiveMenu(null);
+    try {
+      const canvas = viewportRef.current?.querySelector('canvas');
+      if (canvas) {
+        setReportScreenshot(canvas.toDataURL('image/png'));
+      } else {
+        setReportScreenshot(null);
+      }
+    } catch (err) {
+      console.error('Screenshot capture failed:', err);
+      setReportScreenshot(null);
+    }
+    setReportOpen(true);
+  }, []);
+
   // --- New Project (reset all state) ---
   const handleNewProject = useCallback(() => {
     setActiveTool('select');
@@ -226,6 +246,7 @@ export default function SpatialSense({ initialScan = null, onBack = null }) {
         clearMeasurements={meas.clearMeasurements}
         exportMeasurementsJSON={exportMeasurementsJSON}
         exportMeasurementsCSV={exportMeasurementsCSV}
+        openReportPreview={openReportPreview}
         screenshotViewport={screenshotViewport}
         scannerState={pcm.scannerState}
         connectToScanner={pcm.connectToScanner}
@@ -387,6 +408,18 @@ export default function SpatialSense({ initialScan = null, onBack = null }) {
 
       {/* Toast Notification */}
       <NotificationPopup notification={notification} />
+
+      {/* Report Preview Modal */}
+      <ReportPreviewModal
+        isOpen={reportOpen}
+        onClose={() => setReportOpen(false)}
+        scanInfo={initialScan}
+        roomDimensions={pcm.roomDimensions}
+        measurements={meas.measurements}
+        pointCount={pcm.pointCount}
+        screenshotDataUrl={reportScreenshot}
+        unit={unit}
+      />
     </div>
   );
 }
