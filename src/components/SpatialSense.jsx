@@ -155,12 +155,20 @@ export default function SpatialSense({ initialScan = null, onBack = null }) {
   }, [showNotification, playScreenshotSound]);
 
   // --- Open Report Preview (captures screenshot, then opens modal) ---
-  const openReportPreview = useCallback(() => {
+  const openReportPreview = useCallback(async () => {
     setActiveMenu(null);
     try {
-      const canvas = viewportRef.current?.querySelector('canvas');
-      if (canvas) {
-        setReportScreenshot(canvas.toDataURL('image/png'));
+      if (viewportRef.current) {
+        // Use html2canvas (bundled with jsPDF) to capture both the WebGL canvas
+        // AND the HTML overlay labels as a single composite image.
+        const html2canvas = (await import('html2canvas')).default;
+        const composite = await html2canvas(viewportRef.current, {
+          backgroundColor: '#09090b',
+          logging: false,
+          useCORS: true,
+          scale: window.devicePixelRatio || 1,
+        });
+        setReportScreenshot(composite.toDataURL('image/png'));
       } else {
         setReportScreenshot(null);
       }
