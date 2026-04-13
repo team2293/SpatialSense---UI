@@ -186,7 +186,7 @@ export default function ScanDashboard({ onSelectScan, onNewScan }) {
             <h1 className="text-xl font-bold text-white tracking-tight">
               <span className="text-orange-500">Spatial</span>Sense
             </h1>
-            <p className="text-zinc-500 text-xs mt-0.5">3D Room Scanner for Construction</p>
+            <p className="text-zinc-500 text-xs mt-0.5">3D Room Scanner</p>
           </div>
           <div className="flex items-center gap-2 text-xs text-zinc-500">
             <div className="w-2 h-2 rounded-full bg-green-500" />
