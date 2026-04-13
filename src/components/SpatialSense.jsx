@@ -305,7 +305,7 @@ export default function SpatialSense({ initialScan = null, onBack = null }) {
                 pointSize={pointSize}
                 shadingMode={shadingMode}
                 roomDimensions={pcm.roomDimensions}
-                measurements={meas.measurements}
+                measurements={reportOpen ? [] : meas.measurements}
                 activeTool={activeTool}
                 onMeasure={meas.handleMeasurePoint}
                 measurementStart={meas.measurementStart}
