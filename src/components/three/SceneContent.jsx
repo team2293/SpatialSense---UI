@@ -31,6 +31,49 @@ function CameraHintApplier({ cameraHint, controlsRef }) {
   return null;
 }
 
+// Auto-fits orthographic camera zoom to the point cloud size
+function OrthoCameraFitter({ viewMode, roomDimensions, controlsRef }) {
+  const { camera, size } = useThree();
+
+  useEffect(() => {
+    if (!camera.isOrthographicCamera) return;
+    if (!roomDimensions) return;
+
+    const length = roomDimensions.length || 6;
+    const width = roomDimensions.width || 5;
+    const height = roomDimensions.height || 2.8;
+
+    let viewW, viewH, center;
+    if (viewMode === 'top') {
+      viewW = length; viewH = width;
+      center = [0, height / 2, 0];
+    } else if (viewMode === 'front') {
+      viewW = length; viewH = height;
+      center = [0, height / 2, 0];
+    } else if (viewMode === 'side') {
+      viewW = width; viewH = height;
+      center = [0, height / 2, 0];
+    } else {
+      return;
+    }
+
+    // Fit with 15% padding
+    const padding = 1.15;
+    const zoomX = size.width / (viewW * padding);
+    const zoomY = size.height / (viewH * padding);
+    camera.zoom = Math.min(zoomX, zoomY);
+    camera.updateProjectionMatrix();
+
+    // Target the center of the scene so the cloud is framed
+    if (controlsRef.current) {
+      controlsRef.current.target.set(center[0], center[1], center[2]);
+      controlsRef.current.update();
+    }
+  }, [viewMode, roomDimensions, camera, size, controlsRef]);
+
+  return null;
+}
+
 function SceneContent({
   viewMode,
   showGrid,
@@ -87,6 +130,11 @@ function SceneContent({
       {/* Apply camera position from PLY reference points */}
       {cameraHint && viewMode === 'perspective' && (
         <CameraHintApplier cameraHint={cameraHint} controlsRef={controlsRef} />
+      )}
+
+      {/* Auto-fit orthographic cameras to point cloud */}
+      {(viewMode === 'top' || viewMode === 'front' || viewMode === 'side') && (
+        <OrthoCameraFitter viewMode={viewMode} roomDimensions={roomDimensions} controlsRef={controlsRef} />
       )}
 
       {/* Lighting */}
