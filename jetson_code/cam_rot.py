@@ -124,9 +124,15 @@ def main():
     # Setup GPIO
     pan_pwm, tilt_pwm = setup_gpio()
 
-    print(f"Polling S3 every {POLL_INTERVAL} seconds for scan command...")
+    # Seed last_timestamp with whatever's currently in S3 so a stale command
+    # from a previous run doesn't fire on startup. Only commands written
+    # AFTER the Jetson boots will trigger a scan.
+    initial = check_for_command(s3_client)
+    last_timestamp = initial.get("timestamp") if initial else None
+    if last_timestamp:
+        print(f"Ignoring existing command (timestamp={last_timestamp}) — waiting for next click")
 
-    last_timestamp = None  # Only trigger when the UI writes a newer timestamp
+    print(f"Polling S3 every {POLL_INTERVAL} seconds for scan command...")
 
     try:
         while True:
