@@ -74,10 +74,11 @@ function MeasurementLine({
           className={`px-2 py-1 rounded text-xs font-mono whitespace-nowrap cursor-pointer transition-all ${
             isSelected
               ? 'bg-yellow-500 text-zinc-900 border border-yellow-300'
-              : 'bg-zinc-900/90 text-yellow-400 border border-yellow-400/30'
+              : 'bg-zinc-900/90 border'
           }`}
+          style={!isSelected ? { color, borderColor: `${color}66` } : undefined}
         >
-          {name && <span className="text-zinc-500 mr-1.5">{name}</span>}{displayDistance}
+          {name && <span className="mr-1.5 opacity-80">{name}</span>}{displayDistance}
         </div>
       </Html>
     </group>
