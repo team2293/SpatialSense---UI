@@ -9,6 +9,7 @@ export default function ReportPreviewModal({
   measurements,
   pointCount,
   screenshotDataUrl,
+  additionalViews,
   unit,
 }) {
   const [pdfUrl, setPdfUrl] = useState(null);
@@ -23,6 +24,7 @@ export default function ReportPreviewModal({
       measurements,
       pointCount,
       screenshotDataUrl,
+      additionalViews,
       unit,
     });
 
@@ -34,7 +36,7 @@ export default function ReportPreviewModal({
     return () => {
       URL.revokeObjectURL(url);
     };
-  }, [isOpen, scanInfo, roomDimensions, measurements, pointCount, screenshotDataUrl, unit]);
+  }, [isOpen, scanInfo, roomDimensions, measurements, pointCount, screenshotDataUrl, additionalViews, unit]);
 
   const handleDownload = () => {
     if (!docRef) return;

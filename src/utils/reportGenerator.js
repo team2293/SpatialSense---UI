@@ -23,6 +23,7 @@ export function generateReportPdf({
   measurements,
   pointCount,
   screenshotDataUrl,
+  additionalViews = null,
   unit = 'meters',
 }) {
   const doc = new jsPDF({ unit: 'pt', format: 'letter' });
@@ -198,6 +199,54 @@ export function generateReportPdf({
     doc.setFontSize(10);
     doc.setTextColor(113, 113, 122);
     doc.text('No measurements recorded.', margin, cursorY);
+  }
+
+  // ─── Additional Views ───────────────────────────────
+  if (additionalViews) {
+    const views = [
+      { key: 'perspective', label: '3D Perspective' },
+      { key: 'top', label: 'Top View' },
+      { key: 'side', label: 'Side View' },
+    ].filter((v) => additionalViews[v.key]);
+
+    if (views.length > 0) {
+      doc.addPage();
+      cursorY = margin;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.setTextColor(24, 24, 27);
+      doc.text('Additional Views', margin, cursorY);
+      cursorY += 6;
+
+      doc.setDrawColor(228, 228, 231);
+      doc.line(margin, cursorY, pageWidth - margin, cursorY);
+      cursorY += 20;
+
+      const imgWidth = pageWidth - margin * 2;
+      const imgHeight = imgWidth * 0.5625; // 16:9
+
+      views.forEach((v, idx) => {
+        // New page if this view won't fit
+        if (cursorY + imgHeight + 40 > pageHeight - margin) {
+          doc.addPage();
+          cursorY = margin;
+        }
+
+        try {
+          doc.addImage(additionalViews[v.key], 'PNG', margin, cursorY, imgWidth, imgHeight);
+          cursorY += imgHeight + 8;
+        } catch (err) {
+          console.error(`Failed to add ${v.key} view:`, err);
+        }
+
+        doc.setFontSize(8);
+        doc.setTextColor(113, 113, 122);
+        doc.setFont('helvetica', 'italic');
+        doc.text(`Figure ${idx + 2}: ${v.label}`, margin, cursorY);
+        cursorY += 24;
+      });
+    }
   }
 
   // ─── Footer on every page ───────────────────────────

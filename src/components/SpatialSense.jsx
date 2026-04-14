@@ -63,6 +63,8 @@ export default function SpatialSense({ initialScan = null, onBack = null }) {
   const [shadingMode, setShadingMode] = useState('original');
   const [reportOpen, setReportOpen] = useState(false);
   const [reportScreenshot, setReportScreenshot] = useState(null);
+  const [reportAdditionalViews, setReportAdditionalViews] = useState(null);
+  const [isCapturingReport, setIsCapturingReport] = useState(false);
 
   const menuBarRef = useRef(null);
   const viewportRef = useRef(null);
@@ -154,30 +156,62 @@ export default function SpatialSense({ initialScan = null, onBack = null }) {
     }
   }, [showNotification, playScreenshotSound]);
 
-  // --- Open Report Preview (captures screenshot, then opens modal) ---
+  // --- Open Report Preview (captures screenshots of multiple views, then opens modal) ---
   const openReportPreview = useCallback(async () => {
     setActiveMenu(null);
-    try {
-      if (viewportRef.current) {
-        // Use html2canvas (bundled with jsPDF) to capture both the WebGL canvas
-        // AND the HTML overlay labels as a single composite image.
-        const html2canvas = (await import('html2canvas')).default;
-        const composite = await html2canvas(viewportRef.current, {
-          backgroundColor: '#09090b',
-          logging: false,
-          useCORS: true,
-          scale: window.devicePixelRatio || 1,
+    setIsCapturingReport(true);
+
+    const captureCurrentView = async (html2canvas) => {
+      if (!viewportRef.current) return null;
+      const composite = await html2canvas(viewportRef.current, {
+        backgroundColor: '#09090b',
+        logging: false,
+        useCORS: true,
+        scale: window.devicePixelRatio || 1,
+      });
+      return composite.toDataURL('image/png');
+    };
+
+    // Switch view and wait for camera/render to settle
+    const switchViewAndWait = (view) => new Promise((resolve) => {
+      setSelectedView(view);
+      // Two animation frames + short delay for the camera transition to complete
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setTimeout(resolve, 350);
         });
-        setReportScreenshot(composite.toDataURL('image/png'));
-      } else {
-        setReportScreenshot(null);
+      });
+    });
+
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const originalView = selectedView;
+
+      // Main screenshot: whatever the user has currently selected
+      const main = await captureCurrentView(html2canvas);
+
+      // Additional views: top, side, perspective (for the bottom of the report)
+      const additional = {};
+      const extraViews = ['perspective', 'top', 'side'];
+      for (const view of extraViews) {
+        await switchViewAndWait(view);
+        additional[view] = await captureCurrentView(html2canvas);
       }
+
+      // Restore the user's original view
+      await switchViewAndWait(originalView);
+
+      setReportScreenshot(main);
+      setReportAdditionalViews(additional);
     } catch (err) {
       console.error('Screenshot capture failed:', err);
       setReportScreenshot(null);
+      setReportAdditionalViews(null);
+    } finally {
+      setIsCapturingReport(false);
+      setReportOpen(true);
     }
-    setReportOpen(true);
-  }, []);
+  }, [selectedView]);
 
   // --- New Project (reset all state) ---
   const handleNewProject = useCallback(() => {
@@ -426,8 +460,23 @@ export default function SpatialSense({ initialScan = null, onBack = null }) {
         measurements={meas.measurements}
         pointCount={pcm.pointCount}
         screenshotDataUrl={reportScreenshot}
+        additionalViews={reportAdditionalViews}
         unit={unit}
       />
+
+      {/* Capturing screenshots overlay */}
+      {isCapturingReport && (
+        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <svg className="w-12 h-12 animate-spin text-orange-500" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+              <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            <p className="text-white font-medium">Generating report...</p>
+            <p className="text-zinc-400 text-xs">Capturing multiple views</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
