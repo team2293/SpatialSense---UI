@@ -11,17 +11,20 @@ const PointCloud = forwardRef(function PointCloud(
   // Expose the <points> mesh so measurement tools can raycast against it
   useImperativeHandle(ref, () => pointsRef.current);
 
-  // Circle texture so points render as spheres instead of squares
+  // Soft gaussian-falloff sprite so point edges blend instead of cutting hard.
+  // This is what makes the cloud look denser/closer to MeshLab.
   const circleTexture = useMemo(() => {
     const size = 64;
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
     const ctx = canvas.getContext('2d');
-    ctx.beginPath();
-    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-    ctx.fillStyle = 'white';
-    ctx.fill();
+    const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    gradient.addColorStop(0.0, 'rgba(255,255,255,1.0)');
+    gradient.addColorStop(0.5, 'rgba(255,255,255,0.6)');
+    gradient.addColorStop(1.0, 'rgba(255,255,255,0.0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, size, size);
     const texture = new THREE.CanvasTexture(canvas);
     texture.needsUpdate = true;
     return texture;
@@ -115,12 +118,12 @@ const PointCloud = forwardRef(function PointCloud(
       <bufferGeometry ref={geometryRef} />
       <pointsMaterial
         vertexColors
-        size={pointSize}
+        size={pointSize * 2}
         sizeAttenuation
         transparent
-        opacity={0.8}
+        opacity={1.0}
         map={circleTexture}
-        alphaTest={0.5}
+        depthWrite={false}
       />
     </points>
   );
