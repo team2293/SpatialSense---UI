@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { getRaycastPlane, applyAxisConstraint } from './geometry';
 
 const _raycaster = new THREE.Raycaster();
+const _vertex = new THREE.Vector3();
 
 /**
  * Try to snap to a point cloud point; fall back to plane intersection.
@@ -25,7 +26,20 @@ export function snapToPoint({
 
     if (intersects.length > 0) {
       const hit = intersects[0];
-      let pos = [hit.point.x, hit.point.y, hit.point.z];
+
+      // hit.point is the closest point on the ray to the vertex, not the
+      // vertex itself — using it directly leaves a camera-direction offset
+      // that becomes visible when the view rotates. Read the true vertex
+      // position from the geometry buffer instead.
+      const positions = pointsMesh.geometry?.attributes?.position;
+      if (positions && hit.index != null) {
+        _vertex.fromBufferAttribute(positions, hit.index);
+        _vertex.applyMatrix4(pointsMesh.matrixWorld);
+      } else {
+        _vertex.copy(hit.point);
+      }
+
+      let pos = [_vertex.x, _vertex.y, _vertex.z];
 
       if (measurementStart && axisConstraint) {
         pos = applyAxisConstraint(pos, measurementStart, axisConstraint);
