@@ -43,6 +43,7 @@ function MeasurementTool({ active, onMeasure, measurementStart, viewMode, axisCo
       measurementStart,
       axisConstraint,
       pointSize,
+      disableSnap: event.metaKey || event.altKey,
     });
 
     if (result.position) {

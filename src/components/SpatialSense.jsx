@@ -52,7 +52,7 @@ export default function SpatialSense({ initialScan = null, onBack = null }) {
   // --- UI State ---
   const [activeTool, setActiveTool] = useState('select');
   const [selectedView, setSelectedView] = useState('perspective');
-  const [showGrid, setShowGrid] = useState(true);
+  const [showGrid, setShowGrid] = useState(false);
   const [showDimensions, setShowDimensions] = useState(true);
   const [unit, setUnit] = useState('meters');
   const [activeMenu, setActiveMenu] = useState(null);
@@ -85,6 +85,18 @@ export default function SpatialSense({ initialScan = null, onBack = null }) {
       pcm.loadDemoData();
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Turn the grid off whenever a new model loads (empty -> non-empty
+  // transition). Without this, the grid bleeds through the cloud and
+  // looks distracting. The user can still toggle it back on manually.
+  const prevHasModel = useRef(false);
+  useEffect(() => {
+    const hasModel = pcm.pointCloud.length > 0;
+    if (hasModel && !prevHasModel.current) {
+      setShowGrid(false);
+    }
+    prevHasModel.current = hasModel;
+  }, [pcm.pointCloud.length]);
 
   useKeyboardShortcuts({
     selectedMeasurement: meas.selectedMeasurement,

@@ -63,6 +63,7 @@ function MeasurementPreview({ active, measurementStart, viewMode, axisConstraint
         measurementStart,
         axisConstraint,
         pointSize,
+        disableSnap: event.metaKey || event.altKey,
       });
 
       if (result.position) {

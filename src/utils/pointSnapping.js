@@ -16,11 +16,14 @@ export function snapToPoint({
   measurementStart,
   axisConstraint,
   pointSize = 0.05,
+  disableSnap = false,
 }) {
   _raycaster.setFromCamera(mouse, camera);
 
-  // Try raycasting against point cloud first
-  if (pointsMesh) {
+  // Try raycasting against point cloud first (unless user is holding the
+  // free-move modifier — Cmd on Mac / Alt on Windows — in which case we
+  // skip straight to the plane intersection for unconstrained placement).
+  if (pointsMesh && !disableSnap) {
     _raycaster.params.Points.threshold = Math.max(0.1, pointSize * 3);
     const intersects = _raycaster.intersectObject(pointsMesh);
 
