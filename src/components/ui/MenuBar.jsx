@@ -34,6 +34,8 @@ export default function MenuBar({
   clearMeasurements,
   exportMeasurementsJSON,
   exportMeasurementsCSV,
+  saveProject,
+  openProject,
   openReportPreview,
   screenshotViewport,
   scannerState,
@@ -98,6 +100,13 @@ export default function MenuBar({
                 </button>
                 <button onClick={() => { loadDemoData(); setActiveMenu(null); }} className="w-full text-left px-4 py-1.5 text-zinc-300 hover:bg-zinc-700 hover:text-white">
                   Load Demo Scene
+                </button>
+                <div className="border-t border-zinc-700 my-1"></div>
+                <button onClick={openProject} className="w-full text-left px-4 py-1.5 text-zinc-300 hover:bg-zinc-700 hover:text-white">
+                  Open Project...
+                </button>
+                <button onClick={saveProject} className={`w-full text-left px-4 py-1.5 ${measurements.length >= 0 ? 'text-zinc-300 hover:bg-zinc-700 hover:text-white' : 'text-zinc-600 cursor-not-allowed'}`}>
+                  Save Project...
                 </button>
                 <div className="border-t border-zinc-700 my-1"></div>
                 <button onClick={exportMeasurementsJSON} className={`w-full text-left px-4 py-1.5 flex items-center justify-between ${measurements.length > 0 ? 'text-zinc-300 hover:bg-zinc-700 hover:text-white' : 'text-zinc-600 cursor-not-allowed'}`} disabled={measurements.length === 0}>

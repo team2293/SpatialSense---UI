@@ -193,6 +193,24 @@ export function usePointCloudManager() {
     event.target.value = '';
   }, [loadPlyFromFile]);
 
+  // Hydrate scene state from a saved project payload (see utils/projectIO.js).
+  // Mirrors what loadPlyFromFile does but skips PLY parsing since the cloud
+  // is already in the payload.
+  const loadProject = useCallback((data) => {
+    setScannerState(ScannerState.PROCESSING);
+    setScannerMessage('Loading project...');
+    setTimeout(() => {
+      setPointCloud(data.pointCloud);
+      setOriginalPointCloud(data.originalPointCloud || data.pointCloud);
+      setModelRotation(data.modelRotation || { x: 0, y: 0, z: 0 });
+      setRoomDimensions(data.roomDimensions || { length: 6, width: 5, height: 2.8 });
+      setPointCount(data.pointCloud.length);
+      setCameraHint(data.cameraHint || null);
+      setScannerState(ScannerState.MODEL_LOADED);
+      setScannerMessage(`Project loaded: ${data.name || 'Untitled'}`);
+    }, 50);
+  }, []);
+
   return {
     // Scanner
     scannerState, scannerMessage, connectionUrl, setConnectionUrl,
@@ -205,5 +223,6 @@ export function usePointCloudManager() {
     // Actions
     loadPlyFromUrl, loadPlyFromFile, handleFileSelect,
     handleRotateModel, handleResetRotation,
+    loadProject,
   };
 }

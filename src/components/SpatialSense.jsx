@@ -7,6 +7,7 @@ import { ScannerState } from '../constants';
 // Utils
 import { formatLength, formatArea, formatVolume } from '../utils/formatters';
 import { downloadMeasurementsJSON, downloadMeasurementsCSV } from '../utils/export';
+import { buildProjectPayload, downloadProjectFile, parseProjectFile } from '../utils/projectIO';
 
 // Hooks
 import { usePointCloudManager } from '../hooks/usePointCloudManager';
@@ -138,6 +139,47 @@ export default function SpatialSense({ initialScan = null, onBack = null }) {
     downloadMeasurementsCSV(meas.measurements);
     setActiveMenu(null);
   }, [meas.measurements]);
+
+  // --- Save / Load project (embedded point cloud + measurements) ---
+  const projectFileInputRef = useRef(null);
+
+  const saveProject = useCallback(() => {
+    setActiveMenu(null);
+    if (pcm.pointCloud.length === 0) {
+      showNotification('Load a model before saving a project', 'error');
+      return;
+    }
+    const payload = buildProjectPayload({
+      name: initialScan?.name || 'SpatialSense Project',
+      pointCloud: pcm.pointCloud,
+      originalPointCloud: pcm.originalPointCloud,
+      modelRotation: pcm.modelRotation,
+      roomDimensions: pcm.roomDimensions,
+      cameraHint: pcm.cameraHint,
+      measurements: meas.measurements,
+    });
+    downloadProjectFile(payload);
+    showNotification('Project saved', 'success');
+  }, [pcm.pointCloud, pcm.originalPointCloud, pcm.modelRotation, pcm.roomDimensions, pcm.cameraHint, meas.measurements, initialScan, showNotification]);
+
+  const handleProjectFileSelect = useCallback(async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const data = await parseProjectFile(file);
+      pcm.loadProject(data);
+      meas.setMeasurements(data.measurements || []);
+      showNotification(`Loaded ${data.name || 'project'}`, 'success');
+    } catch (err) {
+      showNotification(`Failed to load project: ${err.message}`, 'error');
+    }
+  }, [pcm, meas, showNotification]);
+
+  const openProject = useCallback(() => {
+    setActiveMenu(null);
+    projectFileInputRef.current?.click();
+  }, []);
 
   // --- Screenshot viewport → copy to clipboard ---
   const screenshotViewport = useCallback(async () => {
@@ -274,6 +316,15 @@ export default function SpatialSense({ initialScan = null, onBack = null }) {
         className="hidden"
       />
 
+      {/* Hidden file input for project loading */}
+      <input
+        type="file"
+        ref={projectFileInputRef}
+        onChange={handleProjectFileSelect}
+        accept=".json"
+        className="hidden"
+      />
+
       {/* Top Menu Bar */}
       <MenuBar
         onBack={onBack}
@@ -300,6 +351,8 @@ export default function SpatialSense({ initialScan = null, onBack = null }) {
         clearMeasurements={meas.clearMeasurements}
         exportMeasurementsJSON={exportMeasurementsJSON}
         exportMeasurementsCSV={exportMeasurementsCSV}
+        saveProject={saveProject}
+        openProject={openProject}
         openReportPreview={openReportPreview}
         screenshotViewport={screenshotViewport}
         scannerState={pcm.scannerState}
