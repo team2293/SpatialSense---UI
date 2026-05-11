@@ -39,11 +39,9 @@ function MeasurementTool({ active, onMeasure, measurementStart, viewMode, axisCo
       mouse,
       camera,
       pointsMesh: pointCloudRef?.current ?? null,
-      viewMode,
       measurementStart,
       axisConstraint,
       pointSize,
-      disableSnap: event.metaKey || event.altKey,
     });
 
     if (result.position) {

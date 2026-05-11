@@ -59,16 +59,19 @@ function MeasurementPreview({ active, measurementStart, viewMode, axisConstraint
         mouse,
         camera,
         pointsMesh: pointCloudRef?.current ?? null,
-        viewMode,
         measurementStart,
         axisConstraint,
         pointSize,
-        disableSnap: event.metaKey || event.altKey,
       });
 
       if (result.position) {
         setPreviewPos(result.position);
         setIsSnapped(result.snapped);
+      } else {
+        // No vertex under cursor — hide the preview so the user sees
+        // immediately that a click here won't register.
+        setPreviewPos(null);
+        setIsSnapped(false);
       }
     };
 

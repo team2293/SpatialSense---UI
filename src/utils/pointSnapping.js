@@ -1,78 +1,60 @@
 import * as THREE from 'three';
-import { getRaycastPlane, applyAxisConstraint } from './geometry';
+import { applyAxisConstraint } from './geometry';
 
 const _raycaster = new THREE.Raycaster();
 const _vertex = new THREE.Vector3();
 
 /**
- * Try to snap to a point cloud point; fall back to plane intersection.
- * Returns { position: [x,y,z] | null, snapped: boolean }
+ * Snap the cursor to a real point cloud vertex via tight raycast.
+ *
+ * The raycaster threshold (scaled with pointSize) gives a small bit of
+ * slack so the cursor can land on a vertex without being pixel-perfect,
+ * and it lets the snap "jump" across small gaps in the cloud. If the
+ * raycast misses entirely, returns null — callers must treat that as
+ * "no valid placement" and reject the click. We deliberately do NOT
+ * fall back to a brute-force nearest-vertex-to-ray search, because
+ * "closest to the ray" can be a point anywhere along the ray's depth
+ * (e.g. on the wall behind the headboard), which makes the snapped
+ * point appear correct head-on but float in mid-air from other angles.
+ *
+ * Returns { position: [x,y,z] | null, snapped: boolean }.
  */
 export function snapToPoint({
   mouse,
   camera,
   pointsMesh,
-  viewMode,
   measurementStart,
   axisConstraint,
   pointSize = 0.05,
-  disableSnap = false,
 }) {
+  if (!pointsMesh) {
+    return { position: null, snapped: false };
+  }
+  const positions = pointsMesh.geometry?.attributes?.position;
+  if (!positions || positions.count === 0) {
+    return { position: null, snapped: false };
+  }
+
   _raycaster.setFromCamera(mouse, camera);
+  _raycaster.params.Points.threshold = Math.max(0.1, pointSize * 3);
+  const intersects = _raycaster.intersectObject(pointsMesh);
 
-  // Try raycasting against point cloud first (unless user is holding the
-  // free-move modifier — Cmd on Mac / Alt on Windows — in which case we
-  // skip straight to the plane intersection for unconstrained placement).
-  if (pointsMesh && !disableSnap) {
-    _raycaster.params.Points.threshold = Math.max(0.1, pointSize * 3);
-    const intersects = _raycaster.intersectObject(pointsMesh);
-
-    if (intersects.length > 0) {
-      const hit = intersects[0];
-
-      // hit.point is the closest point on the ray to the vertex, not the
-      // vertex itself — using it directly leaves a camera-direction offset
-      // that becomes visible when the view rotates. Read the true vertex
-      // position from the geometry buffer instead.
-      const positions = pointsMesh.geometry?.attributes?.position;
-      if (positions && hit.index != null) {
-        _vertex.fromBufferAttribute(positions, hit.index);
-        _vertex.applyMatrix4(pointsMesh.matrixWorld);
-      } else {
-        _vertex.copy(hit.point);
-      }
-
-      let pos = [_vertex.x, _vertex.y, _vertex.z];
-
-      if (measurementStart && axisConstraint) {
-        pos = applyAxisConstraint(pos, measurementStart, axisConstraint);
-      }
-
-      return { position: pos, snapped: true };
-    }
+  if (intersects.length === 0) {
+    return { position: null, snapped: false };
   }
 
-  // Fall back to plane intersection
-  let plane;
-  if (measurementStart && axisConstraint === 'y') {
-    const cameraDir = new THREE.Vector3();
-    camera.getWorldDirection(cameraDir);
-    const planeNormal = new THREE.Vector3(cameraDir.x, 0, cameraDir.z).normalize();
-    plane = new THREE.Plane(planeNormal, -planeNormal.dot(new THREE.Vector3(...measurementStart)));
-  } else {
-    plane = getRaycastPlane(viewMode, measurementStart);
+  const pickedIndex = intersects[0].index ?? -1;
+  if (pickedIndex < 0) {
+    return { position: null, snapped: false };
   }
 
-  const intersectPoint = new THREE.Vector3();
-  const hit = _raycaster.ray.intersectPlane(plane, intersectPoint);
+  _vertex.fromBufferAttribute(positions, pickedIndex);
+  _vertex.applyMatrix4(pointsMesh.matrixWorld);
+  let pos = [_vertex.x, _vertex.y, _vertex.z];
 
-  if (hit) {
-    let pos = [intersectPoint.x, intersectPoint.y, intersectPoint.z];
-    if (measurementStart && axisConstraint) {
-      pos = applyAxisConstraint(pos, measurementStart, axisConstraint);
-    }
-    return { position: pos, snapped: false };
+  if (measurementStart && axisConstraint) {
+    pos = applyAxisConstraint(pos, measurementStart, axisConstraint);
   }
 
-  return { position: null, snapped: false };
+  return { position: pos, snapped: true };
 }

@@ -16,7 +16,20 @@ function CameraHintApplier({ cameraHint, controlsRef }) {
     if (!cameraHint || !camera) return;
 
     const { position, target } = cameraHint;
-    if (position) {
+    // The raw hint places the camera at the scanner origin, which sits
+    // right on the model and crops it tight. Push the camera back along
+    // the (target → position) vector so the model fits in view.
+    const ZOOM_OUT_FACTOR = 1.8;
+    if (position && target) {
+      const dx = position[0] - target[0];
+      const dy = position[1] - target[1];
+      const dz = position[2] - target[2];
+      camera.position.set(
+        target[0] + dx * ZOOM_OUT_FACTOR,
+        target[1] + dy * ZOOM_OUT_FACTOR,
+        target[2] + dz * ZOOM_OUT_FACTOR,
+      );
+    } else if (position) {
       camera.position.set(position[0], position[1], position[2]);
     }
     if (target && controlsRef.current) {
