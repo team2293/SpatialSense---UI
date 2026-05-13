@@ -130,15 +130,15 @@ export default function SpatialSense({ initialScan = null, onBack = null }) {
   // --- Export wrappers (close menu after export) ---
   const exportMeasurementsJSON = useCallback(() => {
     if (meas.measurements.length === 0) return;
-    downloadMeasurementsJSON(meas.measurements);
+    downloadMeasurementsJSON(meas.measurements, unit);
     setActiveMenu(null);
-  }, [meas.measurements]);
+  }, [meas.measurements, unit]);
 
   const exportMeasurementsCSV = useCallback(() => {
     if (meas.measurements.length === 0) return;
-    downloadMeasurementsCSV(meas.measurements);
+    downloadMeasurementsCSV(meas.measurements, unit);
     setActiveMenu(null);
-  }, [meas.measurements]);
+  }, [meas.measurements, unit]);
 
   // --- Save / Load project (embedded point cloud + measurements) ---
   const projectFileInputRef = useRef(null);
