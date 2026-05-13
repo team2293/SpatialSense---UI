@@ -60,7 +60,7 @@ export default function SpatialSense({ initialScan = null, onBack = null }) {
   const [showRoomBounds, setShowRoomBounds] = useState(true);
   const [showAxes, setShowAxes] = useState(true);
   const [cursorPosition, setCursorPosition] = useState({ x: '0.000', y: '0.000', z: '0.000' });
-  const [pointSize, setPointSize] = useState(0.010);
+  const [pointSize, setPointSize] = useState(0.005);
   const [shadingMode, setShadingMode] = useState('original');
   const [reportOpen, setReportOpen] = useState(false);
   const [reportScreenshot, setReportScreenshot] = useState(null);
