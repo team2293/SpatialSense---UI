@@ -2,6 +2,11 @@ import { useState, useRef, useCallback } from 'react';
 
 export function useMeasurements({ setActiveTool }) {
   const [measurements, setMeasurements] = useState([]);
+  // Area entries derived from closed polygons and "promoted" by the user
+  // (clicked from the viewport). Separate from line measurements so the
+  // existing line-only consumers (export, projectIO, drag-to-edit) don't
+  // need to learn about a discriminator field.
+  const [areaMeasurements, setAreaMeasurements] = useState([]);
   const [measurementStart, setMeasurementStart] = useState(null);
   const [selectedMeasurement, setSelectedMeasurement] = useState(null);
   const [axisConstraint, setAxisConstraint] = useState(null);
@@ -43,8 +48,53 @@ export function useMeasurements({ setActiveTool }) {
 
   const clearMeasurements = useCallback(() => {
     setMeasurements([]);
+    setAreaMeasurements([]);
     setMeasurementStart(null);
     setSelectedMeasurement(null);
+  }, []);
+
+  // Promote a derived polygon (from PolygonAreaLabels) into a named, persistent
+  // entry in the measurements list. Snapshots the polygon's vertices/area so
+  // deleting one of the underlying lines later doesn't erase the saved value.
+  const promotePolygon = useCallback((polygon) => {
+    const id = `area-${Date.now()}`;
+    setAreaMeasurements(prev => {
+      // Avoid duplicates if the user clicks the same polygon twice.
+      const sig = polygon.vertices.map(v => v.map(c => c.toFixed(3)).join(',')).sort().join('|');
+      const existing = prev.find(a => a._sig === sig);
+      if (existing) {
+        // Re-trigger rename on the existing one instead of adding a duplicate.
+        setSelectedMeasurement(existing.id);
+        setRenamingMeasurement(existing.id);
+        setRenameValue(existing.name);
+        setTimeout(() => {
+          if (renameInputRef.current) {
+            renameInputRef.current.focus();
+            renameInputRef.current.select();
+          }
+        }, 0);
+        return prev;
+      }
+      const newArea = {
+        id,
+        kind: 'area',
+        name: `A${prev.length + 1}`,
+        vertices: polygon.vertices.map(v => [...v]),
+        area: polygon.area,
+        centroid: [...polygon.centroid],
+        _sig: sig,
+      };
+      setSelectedMeasurement(id);
+      setRenamingMeasurement(id);
+      setRenameValue(newArea.name);
+      setTimeout(() => {
+        if (renameInputRef.current) {
+          renameInputRef.current.focus();
+          renameInputRef.current.select();
+        }
+      }, 0);
+      return [...prev, newArea];
+    });
   }, []);
 
   const updateMeasurementPoint = useCallback((measurementId, pointType, newPosition) => {
@@ -72,6 +122,7 @@ export function useMeasurements({ setActiveTool }) {
   const deleteSelectedMeasurement = useCallback(() => {
     if (selectedMeasurement) {
       setMeasurements(prev => prev.filter(m => m.id !== selectedMeasurement));
+      setAreaMeasurements(prev => prev.filter(a => a.id !== selectedMeasurement));
       setSelectedMeasurement(null);
     }
   }, [selectedMeasurement]);
@@ -98,8 +149,12 @@ export function useMeasurements({ setActiveTool }) {
 
   const saveRename = useCallback(() => {
     if (renamingMeasurement && renameValue.trim()) {
+      const trimmed = renameValue.trim();
       setMeasurements(prev => prev.map(m =>
-        m.id === renamingMeasurement ? { ...m, name: renameValue.trim() } : m
+        m.id === renamingMeasurement ? { ...m, name: trimmed } : m
+      ));
+      setAreaMeasurements(prev => prev.map(a =>
+        a.id === renamingMeasurement ? { ...a, name: trimmed } : a
       ));
     }
     setRenamingMeasurement(null);
@@ -135,6 +190,7 @@ export function useMeasurements({ setActiveTool }) {
 
   return {
     measurements, setMeasurements, measurementStart, setMeasurementStart,
+    areaMeasurements, setAreaMeasurements, promotePolygon,
     selectedMeasurement, setSelectedMeasurement,
     axisConstraint, setAxisConstraint,
     isDraggingPoint, setIsDraggingPoint,

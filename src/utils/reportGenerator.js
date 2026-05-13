@@ -17,10 +17,16 @@ function formatCoord(value, unit) {
   return value.toFixed(3);
 }
 
+function formatAreaValue(sqMeters, unit) {
+  if (unit === 'feet') return `${(sqMeters * 10.7639).toFixed(2)} ft²`;
+  return `${sqMeters.toFixed(2)} m²`;
+}
+
 export function generateReportPdf({
   scanInfo,
   roomDimensions,
   measurements,
+  areaMeasurements = [],
   pointCount,
   screenshotDataUrl,
   additionalViews = null,
@@ -199,6 +205,42 @@ export function generateReportPdf({
     doc.setFontSize(10);
     doc.setTextColor(113, 113, 122);
     doc.text('No measurements recorded.', margin, cursorY);
+    cursorY += 20;
+  }
+
+  // ─── Areas Table ────────────────────────────────────
+  if (areaMeasurements && areaMeasurements.length > 0) {
+    if (cursorY > pageHeight - 150) {
+      doc.addPage();
+      cursorY = margin;
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(24, 24, 27);
+    doc.text(`Areas (${areaMeasurements.length})`, margin, cursorY);
+    cursorY += 6;
+
+    doc.setDrawColor(228, 228, 231);
+    doc.line(margin, cursorY, pageWidth - margin, cursorY);
+    cursorY += 12;
+
+    autoTable(doc, {
+      startY: cursorY,
+      head: [['Name', 'Vertices', 'Area']],
+      body: areaMeasurements.map((a) => [
+        a.name,
+        String(a.vertices?.length ?? 0),
+        formatAreaValue(a.area, unit),
+      ]),
+      theme: 'striped',
+      headStyles: { fillColor: [39, 39, 42], textColor: 255, fontSize: 9 },
+      bodyStyles: { fontSize: 9, textColor: [39, 39, 42] },
+      alternateRowStyles: { fillColor: [244, 244, 245] },
+      margin: { left: margin, right: margin },
+    });
+
+    cursorY = doc.lastAutoTable.finalY + 16;
   }
 
   // ─── Additional Views ───────────────────────────────

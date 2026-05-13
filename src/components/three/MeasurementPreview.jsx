@@ -5,10 +5,11 @@ import * as THREE from 'three';
 import { METERS_TO_FEET } from '../../constants';
 import { snapToPoint } from '../../utils/pointSnapping';
 
-function MeasurementPreview({ active, measurementStart, viewMode, axisConstraint, unit = 'meters', pointCloudRef, pointSize }) {
+function MeasurementPreview({ active, measurementStart, viewMode, axisConstraint, unit = 'meters', pointCloudRef, pointSize, existingEndpoints }) {
   const { camera, gl, size } = useThree();
   const [previewPos, setPreviewPos] = useState(null);
   const [isSnapped, setIsSnapped] = useState(false);
+  const [isEndpointSnap, setIsEndpointSnap] = useState(false);
   const previewMeshRef = useRef();
   const ringRef = useRef();
   const lastRaycastTime = useRef(0);
@@ -62,23 +63,27 @@ function MeasurementPreview({ active, measurementStart, viewMode, axisConstraint
         measurementStart,
         axisConstraint,
         pointSize,
+        existingEndpoints,
+        canvasSize: { width: size.width, height: size.height },
       });
 
       if (result.position) {
         setPreviewPos(result.position);
         setIsSnapped(result.snapped);
+        setIsEndpointSnap(!!result.snappedToEndpoint);
       } else {
         // No vertex under cursor — hide the preview so the user sees
         // immediately that a click here won't register.
         setPreviewPos(null);
         setIsSnapped(false);
+        setIsEndpointSnap(false);
       }
     };
 
     const canvas = gl.domElement;
     canvas.addEventListener('mousemove', handleMouseMove);
     return () => canvas.removeEventListener('mousemove', handleMouseMove);
-  }, [active, camera, gl, viewMode, measurementStart, axisConstraint, pointCloudRef, pointSize]);
+  }, [active, camera, gl, viewMode, measurementStart, axisConstraint, pointCloudRef, pointSize, existingEndpoints, size.width, size.height]);
 
   if (!active || !previewPos) return null;
 
@@ -92,8 +97,9 @@ function MeasurementPreview({ active, measurementStart, viewMode, axisConstraint
     ? `${(previewDistanceMeters * METERS_TO_FEET).toFixed(3)}ft`
     : `${previewDistanceMeters.toFixed(3)}m`;
 
-  const dotColor = isSnapped ? '#22d3ee' : '#facc15';
+  const dotColor = isEndpointSnap ? '#f0abfc' : (isSnapped ? '#22d3ee' : '#facc15');
   const dotOpacity = isSnapped ? 0.9 : 0.5;
+  const ringColor = isEndpointSnap ? '#f0abfc' : '#22d3ee';
 
   return (
     <group>
@@ -106,7 +112,7 @@ function MeasurementPreview({ active, measurementStart, viewMode, axisConstraint
       {isSnapped && (
         <mesh ref={ringRef} position={previewPos} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[PREVIEW_BASE_RADIUS * 1.8, PREVIEW_BASE_RADIUS * 2.5, 32]} />
-          <meshBasicMaterial color="#22d3ee" transparent opacity={0.5} side={THREE.DoubleSide} />
+          <meshBasicMaterial color={ringColor} transparent opacity={isEndpointSnap ? 0.8 : 0.5} side={THREE.DoubleSide} />
         </mesh>
       )}
       {/* Crosshair on ground */}

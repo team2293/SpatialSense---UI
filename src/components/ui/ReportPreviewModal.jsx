@@ -7,6 +7,7 @@ export default function ReportPreviewModal({
   scanInfo,
   roomDimensions,
   measurements,
+  areaMeasurements,
   pointCount,
   screenshotDataUrl,
   additionalViews,
@@ -22,6 +23,7 @@ export default function ReportPreviewModal({
       scanInfo,
       roomDimensions,
       measurements,
+      areaMeasurements,
       pointCount,
       screenshotDataUrl,
       additionalViews,
@@ -36,7 +38,7 @@ export default function ReportPreviewModal({
     return () => {
       URL.revokeObjectURL(url);
     };
-  }, [isOpen, scanInfo, roomDimensions, measurements, pointCount, screenshotDataUrl, additionalViews, unit]);
+  }, [isOpen, scanInfo, roomDimensions, measurements, areaMeasurements, pointCount, screenshotDataUrl, additionalViews, unit]);
 
   const handleDownload = () => {
     if (!docRef) return;

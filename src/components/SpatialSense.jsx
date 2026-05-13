@@ -429,6 +429,9 @@ export default function SpatialSense({ initialScan = null, onBack = null }) {
                 showAxes={showAxes}
                 showRoomBounds={showRoomBounds}
                 cameraHint={pcm.cameraHint}
+                formatArea={fmtArea}
+                areaMeasurements={reportOpen ? [] : meas.areaMeasurements}
+                onPromotePolygon={meas.promotePolygon}
               />
             </Canvas>
 
@@ -484,6 +487,8 @@ export default function SpatialSense({ initialScan = null, onBack = null }) {
           handleRotateModel={pcm.handleRotateModel}
           handleResetRotation={pcm.handleResetRotation}
           measurements={meas.measurements}
+          areaMeasurements={meas.areaMeasurements}
+          setAreaMeasurements={meas.setAreaMeasurements}
           selectedMeasurement={meas.selectedMeasurement}
           setSelectedMeasurement={meas.setSelectedMeasurement}
           renamingMeasurement={meas.renamingMeasurement}
@@ -523,6 +528,7 @@ export default function SpatialSense({ initialScan = null, onBack = null }) {
         scanInfo={initialScan}
         roomDimensions={pcm.roomDimensions}
         measurements={meas.measurements}
+        areaMeasurements={meas.areaMeasurements}
         pointCount={pcm.pointCount}
         screenshotDataUrl={reportScreenshot}
         additionalViews={reportAdditionalViews}

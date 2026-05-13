@@ -3,7 +3,7 @@ import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { snapToPoint } from '../../utils/pointSnapping';
 
-function MeasurementTool({ active, onMeasure, measurementStart, viewMode, axisConstraint, pointCloudRef, pointSize }) {
+function MeasurementTool({ active, onMeasure, measurementStart, viewMode, axisConstraint, pointCloudRef, pointSize, existingEndpoints }) {
   const { camera, gl, size } = useThree();
   const startPointRef = useRef();
 
@@ -42,12 +42,14 @@ function MeasurementTool({ active, onMeasure, measurementStart, viewMode, axisCo
       measurementStart,
       axisConstraint,
       pointSize,
+      existingEndpoints,
+      canvasSize: { width: size.width, height: size.height },
     });
 
     if (result.position) {
       onMeasure(result.position);
     }
-  }, [active, camera, gl, onMeasure, viewMode, measurementStart, axisConstraint, pointCloudRef, pointSize]);
+  }, [active, camera, gl, onMeasure, viewMode, measurementStart, axisConstraint, pointCloudRef, pointSize, existingEndpoints, size.width, size.height]);
 
   useEffect(() => {
     const canvas = gl.domElement;

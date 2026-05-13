@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo, useCallback } from 'react';
 import { useThree } from '@react-three/fiber';
 import { PerspectiveCamera, OrthographicCamera, OrbitControls, Grid } from '@react-three/drei';
 import PointCloud from './PointCloud';
@@ -7,6 +7,8 @@ import MeasurementLine from './MeasurementLine';
 import MeasurementPreview from './MeasurementPreview';
 import MeasurementTool from './MeasurementTool';
 import CoordinateTracker from './CoordinateTracker';
+import PolygonAreaLabels from './PolygonAreaLabels';
+import { uniqueEndpoints } from '../../utils/measurementGraph';
 
 // Applies camera hint from PLY metadata reference points
 function CameraHintApplier({ cameraHint, controlsRef }) {
@@ -111,9 +113,37 @@ function SceneContent({
   pointSize = 0.05,
   shadingMode = 'original',
   cameraHint = null,
+  formatArea = null,
+  areaMeasurements = [],
+  onPromotePolygon = null,
 }) {
   const pointCloudRef = useRef();
   const controlsRef = useRef();
+
+  // Endpoints from already-placed measurements — used both for snap targeting
+  // (so a new line locks onto a shared corner) and to drive polygon detection.
+  const existingEndpoints = useMemo(() => uniqueEndpoints(measurements), [measurements]);
+
+  // Clamp a dragged endpoint to the room's bounding box. The point cloud lives
+  // inside this box; letting endpoints float outside it produces measurements
+  // that have no relationship to anything in the scan.
+  const clampToRoom = useCallback((pos) => {
+    if (!roomDimensions) return pos;
+    const halfL = roomDimensions.length / 2;
+    const halfW = roomDimensions.width / 2;
+    const h = roomDimensions.height;
+    return [
+      Math.max(-halfL, Math.min(halfL, pos[0])),
+      Math.max(0, Math.min(h, pos[1])),
+      Math.max(-halfW, Math.min(halfW, pos[2])),
+    ];
+  }, [roomDimensions]);
+
+  const handleUpdateMeasurementPoint = useCallback((id, pointType, newPos) => {
+    if (onUpdateMeasurementPoint) {
+      onUpdateMeasurementPoint(id, pointType, clampToRoom(newPos));
+    }
+  }, [onUpdateMeasurementPoint, clampToRoom]);
 
   return (
     <>
@@ -189,7 +219,7 @@ function SceneContent({
           end={m.end}
           label={m.distance}
           name={m.name}
-          onUpdatePoint={onUpdateMeasurementPoint}
+          onUpdatePoint={handleUpdateMeasurementPoint}
           axisConstraint={axisConstraint}
           isSelected={selectedMeasurement === m.id}
           onSelect={onSelectMeasurement}
@@ -200,6 +230,15 @@ function SceneContent({
         />
       ))}
 
+      {/* Closed-polygon area labels (triangles & quads formed by chained measurements) */}
+      <PolygonAreaLabels
+        measurements={measurements}
+        areaMeasurements={areaMeasurements}
+        formatArea={formatArea}
+        onPolygonClick={onPromotePolygon}
+        selectedId={selectedMeasurement}
+      />
+
       {/* Measurement Preview - shows where point will be placed */}
       <MeasurementPreview
         active={activeTool === 'measure'}
@@ -209,6 +248,7 @@ function SceneContent({
         unit={unit}
         pointCloudRef={pointCloudRef}
         pointSize={pointSize}
+        existingEndpoints={existingEndpoints}
       />
 
       {/* Measurement Tool */}
@@ -220,6 +260,7 @@ function SceneContent({
         axisConstraint={axisConstraint}
         pointCloudRef={pointCloudRef}
         pointSize={pointSize}
+        existingEndpoints={existingEndpoints}
       />
 
       {/* Coordinate Tracker */}
